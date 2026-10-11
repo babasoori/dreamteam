@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dreamteam: coach six Codex agents from a coding-agent-style basketball terminal with a compact roster, possession controls, explicit passes, and Herdr sessions.">
+  <title>Dreamteam — Basketball playbook</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f1e9;
+      --paper: #fffcf7;
+      --ink: #242a27;
+      --muted: #58625d;
+      --line: #d9d9ce;
+      --accent: #9c3b14;
+      --tint: #f7e8da;
+      --green: #315a45;
+      --code: #eef0e8;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 1rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    a { color: var(--accent); text-underline-offset: 0.2em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 2px; }
+    .skip { position: absolute; left: 1rem; top: -5rem; padding: 0.5rem 1rem; background: var(--paper); z-index: 2; }
+    .skip:focus { top: 1rem; }
+    .wrap { width: min(960px, calc(100% - 2.5rem)); margin-inline: auto; }
+    header { padding: 4rem 0 2.3rem; border-bottom: 1px solid var(--line); }
+    .eyebrow, .section-no { color: var(--accent); font-size: 0.75rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
+    .eyebrow { margin: 0 0 1rem; }
+    h1 { font-size: clamp(2.7rem, 8vw, 5rem); line-height: 1; letter-spacing: -0.065em; margin: 0 0 1.2rem; }
+    h1 span { color: var(--accent); }
+    .lead { max-width: 720px; font-size: 1.2rem; color: var(--muted); }
+    .meta { color: var(--muted); font-size: 0.84rem; margin-bottom: 0; }
+    .decisions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; margin-top: 1.8rem; }
+    .decision { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 0.85rem 1rem; }
+    .decision small { display: block; color: var(--muted); font-size: 0.75rem; }
+    .decision strong { display: block; margin-top: 0.2rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; padding-block: 1.1rem; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+    main { padding-bottom: 3rem; }
+    section { padding-top: 2.5rem; }
+    h2 { font-size: clamp(1.45rem, 4vw, 1.95rem); line-height: 1.2; letter-spacing: -0.035em; margin: 0.3rem 0 1rem; }
+    h3 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+    p { margin: 0 0 1rem; }
+    li + li { margin-top: 0.5rem; }
+    ul, ol { margin: 0 0 1rem; padding-left: 1.3rem; }
+    .note { background: var(--tint); border-left: 3px solid var(--accent); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; }
+    .note p:last-child, .card p:last-child { margin-bottom: 0; }
+    .muted, .source { color: var(--muted); }
+    .source { font-size: 0.85rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 1rem; background: var(--paper); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.8rem 1rem; vertical-align: top; }
+    th { color: var(--muted); background: var(--code); font-size: 0.8rem; }
+    td { border-top: 1px solid var(--line); font-size: 0.94rem; }
+    td:first-child { font-weight: 650; width: 27%; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem; }
+    figure { margin: 1.3rem 0; }
+    .flow { display: grid; gap: 0.4rem; max-width: 660px; margin-inline: auto; text-align: center; }
+    .flow-box { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 0.85rem; }
+    .flow-box.primary { border-color: var(--accent); background: var(--tint); }
+    .flow-box strong, .flow-box small { display: block; }
+    .flow-box small { color: var(--muted); margin-top: 0.15rem; }
+    .arrow { color: var(--accent); line-height: 1; }
+    figcaption { color: var(--muted); font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-size: 0.86em; background: var(--code); padding: 0.12em 0.3em; border-radius: 4px; overflow-wrap: anywhere; }
+    pre { background: var(--code); padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.84rem; line-height: 1.6; }
+    pre code { font-size: inherit; padding: 0; overflow-wrap: normal; }
+    details { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.2rem; margin-top: 1rem; background: var(--paper); }
+    summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+    details[open] summary { margin-bottom: 1rem; }
+    .tui-preview { background: #080a0f; color: #d8dee9; border: 1px solid #2e3440; padding: 1.3rem; line-height: 1.55; }
+    .tui-preview code { background: transparent; color: inherit; }
+    .tui-preview .tui-accent { color: #7aa2f7; }
+    .tui-preview .tui-violet { color: #bb9af7; }
+    .tui-preview .tui-muted { color: #9aa6b8; }
+    .tui-preview .tui-selected { background: #202b45; }
+    .milestone { border-left: 2px solid var(--green); padding-left: 1rem; margin: 1.2rem 0; }
+    .milestone h3 { color: var(--green); }
+    footer { border-top: 1px solid var(--line); padding: 1.5rem 0 2rem; font-size: 0.82rem; color: var(--muted); }
+
+    .court { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; position: relative; padding: 3rem 1rem 1.2rem; border: 2px solid var(--accent); border-radius: 14px 14px 80px 80px; background: var(--tint); }
+    .rim { position: absolute; top: 0.7rem; left: calc(50% - 13px); width: 26px; height: 26px; border: 3px solid var(--accent); border-radius: 50%; }
+    .player { position: relative; text-align: center; padding: 0.8rem 0.4rem; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+    .player strong { display: block; color: var(--accent); font-size: 1.5rem; line-height: 1.2; }
+    .player span, .player small { display: block; }
+    .player span { font-weight: 650; font-size: 0.88rem; margin-top: 0.3rem; }
+    .player small { color: var(--muted); font-size: 0.76rem; }
+    .center { grid-area: 1 / 2; }
+    .power { grid-area: 2 / 1; }
+    .small { grid-area: 2 / 3; }
+    .shooting { grid-area: 3 / 3; }
+    .point { grid-area: 3 / 1; }
+    .sideline { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.8rem; }
+    .sideline > div { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem 1rem; background: var(--paper); }
+    .sideline strong, .sideline span { display: block; }
+    .sideline span { color: var(--muted); font-size: 0.83rem; }
+    @media (max-width: 600px) {
+      .court { gap: 0.45rem; padding-inline: 0.5rem; border-radius: 14px 14px 35px 35px; }
+      .player span { font-size: 0.76rem; }
+      .player small { font-size: 0.7rem; }
+      .sideline { gap: 0.5rem; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #080a0f; --paper: #16161e; --ink: #d8dee9; --muted: #9aa6b8; --line: #2e3440; --accent: #7aa2f7; --tint: #202b45; --green: #a3be8c; --code: #161c29; }
+    }
+    @media (max-width: 600px) {
+      body { font-size: 16px; }
+      .wrap { width: calc(100% - 2rem); }
+      header { padding-top: 2.5rem; }
+      .decisions { grid-template-columns: 1fr 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      th, td { padding: 0.7rem; }
+      td:first-child { width: 32%; }
+    }
+    @media print {
+      :root { color-scheme: light; --bg: #fff; --paper: #fff; --ink: #111; --muted: #444; --line: #ccc; --accent: #733515; --tint: #f6f2ed; --green: #254433; --code: #f3f3f3; }
+      body { font-size: 10.5pt; }
+      .wrap { width: 100%; }
+      header { padding: 0 0 1rem; }
+      h1 { font-size: 32pt; }
+      nav, .skip { display: none; }
+      section { padding-top: 1.2rem; }
+      h2, h3 { break-after: avoid; }
+      tr, .card, .milestone, figure { break-inside: avoid; }
+      .table-wrap, pre { overflow: visible; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      details > :not(summary) { display: block !important; }
+      details::details-content { content-visibility: visible; display: block; }
+      a { color: var(--ink); }
+      footer { padding-bottom: 0; }
+      .tui-preview { background: #fff; color: #111; border-color: #777; }
+      .tui-preview span { color: inherit !important; background: transparent !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to playbook</a>
+  <header>
+    <div class="wrap">
+      <p class="eyebrow">Hackathon design draft · 11 October 2026</p>
+      <h1>Dream<span>team</span></h1>
+      <p class="lead">Coach a team of Codex agents. Call a play, put your starting five to work, and bring in the sixth man when you need a different skill.</p>
+      <p class="meta">Basketball defines the roles, ownership, and handoffs. This is the product and build plan. Roster/session controls, New Play, and the interactive Coach with tool-based assignments are implemented; confirmed possession passes and acceptance remain planned.</p>
+      <div class="decisions" aria-label="Design direction">
+        <div class="decision"><small>Team</small><strong>You coach six agents</strong></div>
+        <div class="decision"><small>Today’s target</small><strong>One possession through the TUI</strong></div>
+        <div class="decision"><small>Foundation</small><strong>Python · Textual · Herdr</strong></div>
+        <div class="decision"><small>Demo interface · required</small><strong>Courtside TUI</strong></div>
+      </div>
+    </div>
+  </header>
+  <nav class="wrap" aria-label="Document sections">
+    <a href="#vision">The game</a>
+    <a href="#lineup">The lineup</a>
+    <a href="#scouting">Scouting reports</a>
+    <a href="#play">One possession</a>
+    <a href="#scoreboard">Courtside</a>
+    <a href="#architecture">Under the hood</a>
+    <a href="#rules">Rules of play</a>
+    <a href="#build">Today’s build</a>
+  </nav>
+  <main class="wrap" id="main">
+    <section id="vision" aria-labelledby="vision-title">
+      <span class="section-no">01 · The game</span>
+      <h2 id="vision-title">Build software by running a basketball team.</h2>
+      <p>Dreamteam is a local agent orchestration tool for one project. You are the coach and set the objective. A point guard organizes the work. The other positions contribute implementation, integration, testing, and independent review. A sixth man provides relief or a missing specialty.</p>
+      <p>The basketball model is the product’s operating language: <strong>roster</strong> means the available players, <strong>starting five</strong> means PG, SG, SF, PF, and C, <strong>possession</strong> means one bounded task, and <strong>having the ball</strong> means being accountable for its next action. A <strong>pass</strong> transfers that responsibility with the evidence needed to continue.</p>
+      <p><strong>First success:</strong> open the Courtside TUI, call one small play, see who has the ball, produce a real code change, test and review the same candidate, and accept the result from the TUI. Every position has a defined job; players run when the play needs them. A polished, usable TUI is part of the demo’s acceptance criteria.</p>
+      <div class="note">
+        <p><strong>You are the coach.</strong> You call and run the plays, direct passes, make substitutions, and accept the results. The roster contains six Codex players: the starting five and The Answer on the bench. Coaching stays with you.</p>
+        <p><strong>Hackathon context:</strong> use the day to finish a working possession and demonstrate it. The event is context; this design introduces no sponsor-tool requirement. <a href="https://www.mlh.com/events/ai-engineer-nyc-2026">Event provided for context</a>.</p>
+      </div>
+    </section>
+
+    <section id="lineup" aria-labelledby="lineup-title">
+      <span class="section-no">02 · The lineup</span>
+      <h2 id="lineup-title">Meet your first Dream Team.</h2>
+      <p><strong>Penny, Air Jordan, King James, Sir Charles, and Shaq</strong> are the starting five. <strong>The Answer (Allen Iverson)</strong> is your sixth man. <strong>You coach the team and run the plays.</strong> Keep each name beside its position so the team has personality and clear responsibilities.</p>
+      <figure>
+        <div class="court" aria-label="Starting five: center near the rim, power forward and small forward on the wings, shooting guard and point guard in the backcourt">
+          <div class="rim" aria-hidden="true"></div>
+          <div class="player center"><strong>C</strong><span>Shaq</span><small>Independent review</small></div>
+          <div class="player power"><strong>PF</strong><span>Sir Charles</span><small>Tests and edge cases</small></div>
+          <div class="player small"><strong>SF</strong><span>King James</span><small>Interface and integration</small></div>
+          <div class="player shooting"><strong>SG</strong><span>Air Jordan</span><small>Primary implementation</small></div>
+          <div class="player point"><strong>PG</strong><span>Penny</span><small>Plan and coordinate</small></div>
+        </div>
+        <div class="sideline">
+          <div><strong>You · Coach</strong><span>Call the plays · direct passes · accept results</span></div>
+          <div><strong>The Answer · 6th Man</strong><span>Allen Iverson · specialist · relief</span></div>
+        </div>
+        <figcaption>Names give players their identity; positions define responsibilities. Each of the six players runs a separate Codex session with its own role brief.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Role</th><th scope="col">Responsibility</th><th scope="col">Useful output</th></tr></thead>
+          <tbody>
+            <tr><td><strong>You</strong><br>Coach</td><td>Calls the play: sets the goal, scope, and acceptance criteria. Approves substitutions and decides when the work counts as a score.</td><td>A bounded objective and an acceptance decision.</td></tr>
+            <tr><td><strong>Penny</strong><br>PG · Point Guard</td><td>Runs the offense: reads the project, breaks the play into steps, identifies dependencies, and proposes the next pass within the coach’s scope.</td><td>A short plan and an actionable assignment for the next player.</td></tr>
+            <tr><td><strong>Air Jordan</strong><br>SG · Shooting Guard</td><td>Gets buckets: implements the main behavior and owns the primary patch.</td><td>A candidate change with a summary of what changed.</td></tr>
+            <tr><td><strong>King James</strong><br>SF · Small Forward</td><td>Connects the floor: handles the seams between components, including UI, API contracts, and the user’s end-to-end flow.</td><td>An integration check, or a focused integration change when assigned the ball.</td></tr>
+            <tr><td><strong>Sir Charles</strong><br>PF · Power Forward</td><td>Does the hard work: runs relevant tests, reproduces failures, and probes edge cases. Receives a separate assignment before changing code.</td><td>Check commands, results, and reproducible failures.</td></tr>
+            <tr><td><strong>Shaq</strong><br>C · Center</td><td>Protects the rim: independently reviews the exact candidate against the play’s acceptance criteria. Does not edit while reviewing.</td><td>Findings or a recommendation to accept, backed by evidence.</td></tr>
+            <tr><td><strong>The Answer · Allen Iverson</strong><br>6th Man</td><td>Comes off the bench for a specialist task or replaces a blocked player. Inherits that position’s assignment and limits for the substitution.</td><td>A focused unblock or a completed assignment with a fresh handoff.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>You coach; Penny runs the offense within your play.</strong> You decide what matters, direct the passes, and accept the result. Penny organizes the work you approve and recommends who gets the ball next. You remain in control of the possession and its scope.</p>
+
+      <details id="scouting" open>
+        <summary>Scouting reports — basketball context and agent personas</summary>
+        <p>Basketball context is sourced below. The agent behaviors and signature moves are our design interpretation of those strengths, and will guide future role briefs.</p>
+        <div class="two-col">
+          <div class="card">
+            <h3>Penny · Anfernee Hardaway · PG</h3>
+            <p><strong>Basketball:</strong> scoring, playmaking, and guard-forward versatility. <a href="https://www.nba.com/news/orlando-magic-single-season-assists-per-game-leaders">NBA context</a>.</p>
+            <p><strong>Agent persona:</strong> the creative playmaker. Read the repository, find dependencies, and give each teammate an assignment they can act on.</p>
+            <p><strong>Signature move — the assist:</strong> pass the goal, relevant files, constraints, and a clear next action. Set up the next player to succeed.</p>
+          </div>
+          <div class="card">
+            <h3>Air Jordan · Michael Jordan · SG</h3>
+            <p><strong>Basketball:</strong> elite scoring paired with elite defense. <a href="https://www.nba.com/news/history-nba-legend-michael-jordan">NBA profile</a>.</p>
+            <p><strong>Agent persona:</strong> the focused finisher. Own the primary implementation, complete the requested behavior, and check the patch before passing.</p>
+            <p><strong>Signature move — the finish:</strong> turn the approved plan into a small, working change with evidence. Keep the standards high and the scope bounded.</p>
+          </div>
+          <div class="card">
+            <h3>King James · LeBron James · SF</h3>
+            <p><strong>Basketball:</strong> combines scoring with exceptional passing. <a href="https://www.nba.com/news/lebron-james-stockton-malone-feature-2023-all-star">NBA feature</a>.</p>
+            <p><strong>Agent persona:</strong> the versatile connector. Follow the complete user flow, bridge components, and check that interfaces agree.</p>
+            <p><strong>Signature move — court vision:</strong> trace a change across UI, API, and data boundaries. Fix an integration gap when given edit ownership.</p>
+          </div>
+          <div class="card">
+            <h3>Sir Charles · Charles Barkley · PF</h3>
+            <p><strong>Basketball:</strong> an undersized power forward whose persistence and rebounding let him compete with much taller opponents. <a href="https://www.hoophall.com/hall-of-famers/charles-barkley">Hall of Fame profile</a>.</p>
+            <p><strong>Agent persona:</strong> the persistent tester. Chase missed cases, reproduce failures, and make every defect actionable.</p>
+            <p><strong>Signature move — the rebound:</strong> pick up what the team missed. Return the failing check, expected behavior, actual behavior, and reproduction steps.</p>
+          </div>
+          <div class="card">
+            <h3>Shaq · Shaquille O’Neal · C</h3>
+            <p><strong>Basketball:</strong> a physically imposing scorer, twice the league’s scoring champion and three times Finals MVP. <a href="https://www.hoophall.com/hall-of-famers/shaquille-oneal">Hall of Fame profile</a>.</p>
+            <p><strong>Agent persona:</strong> the team’s anchor for independent review. Challenge fragile assumptions and require concrete evidence on critical behavior.</p>
+            <p><strong>Signature move — hold the paint:</strong> review the exact candidate and return specific findings or a supported acceptance recommendation. This review assignment is our analogy to his presence and dominance.</p>
+          </div>
+          <div class="card">
+            <h3>The Answer · Allen Iverson · 6th Man</h3>
+            <p><strong>Basketball:</strong> an explosive scorer whose quickness and ball handling helped him create opportunities despite his size; a four-time scoring champion. <a href="https://www.hoophall.com/hall-of-famers/allen-iverson">Hall of Fame profile</a>.</p>
+            <p><strong>Agent persona:</strong> the inventive problem solver off your bench. When you call him in, take the handoff, investigate the blocker, and find a focused way forward within the inherited assignment.</p>
+            <p><strong>Signature move — the crossover:</strong> approach a stuck problem from a different angle, test the idea, and return a concrete result. Sixth man is his role on your Dream Team.</p>
+          </div>
+        </div>
+        <p><strong>Your roster:</strong> five starters plus The Answer on the bench. You decide when The Answer enters the play and whose assignment he takes over. If The Answer contributes code, another player provides the independent review.</p>
+        <p class="source">Player context researched 11 October 2026 using NBA and Naismith Basketball Hall of Fame sources. Names, role briefs, and signature moves are enough for the first demo; a points or badges system can wait.</p>
+      </details>
+
+      <p><strong>The sixth man replaces a player.</strong> A substitution benches the outgoing player for that assignment and records who now occupies the position. The relief player receives the brief, current candidate, and latest handoff in its own Codex session; conversation history remains with the original player session.</p>
+    </section>
+
+    <section id="play" aria-labelledby="play-title">
+      <span class="section-no">03 · The first play</span>
+      <h2 id="play-title">Run one possession from brief to basket.</h2>
+      <p>Choose a small change in a familiar repository with a quick, observable check. A suitable example is adding a filter to an existing list view and verifying its empty state. Keep the possession narrow enough to explain and demonstrate in a few minutes.</p>
+      <ol>
+        <li><strong>You call the play.</strong> Use New Play to write the goal, constraints, and acceptance criteria. Give the ball to Penny through the confirmed-pass procedure below.</li>
+        <li><strong>Penny (PG) sets up the offense.</strong> Inspect the relevant code and write a short plan. Identify any SF integration work and the checks PF should run.</li>
+        <li><strong>Air Jordan (SG) takes the shot.</strong> Implement the main change and record the candidate and checks already performed.</li>
+        <li><strong>King James (SF) connects the play.</strong> Check the interfaces and user flow. If integration work is needed, give SF sole edit ownership before passing on. Otherwise record the check.</li>
+        <li><strong>Sir Charles (PF) tests the possession.</strong> Run the focused checks against the resulting candidate and document failures or missing coverage.</li>
+        <li><strong>Shaq (C) checks the candidate.</strong> Review that same candidate and PF’s evidence. Return specific findings or a recommendation to accept.</li>
+        <li><strong>You record the score.</strong> Accept only when the criteria are satisfied. Otherwise send a revision through PG. Changed candidates need fresh relevant checks and review.</li>
+      </ol>
+      <p>A position may sit out a play when it has no useful contribution; the coach records that choice. Defining the starting five does not require five simultaneous processes or five ritual responses to every task.</p>
+      <div class="two-col">
+        <div class="card">
+          <h3>Every pass carries context</h3>
+          <ul>
+            <li>Possession ID, goal, and acceptance criteria.</li>
+            <li>Outgoing player, receiving player, and requested next action.</li>
+            <li>Exact candidate: repository and revision or saved patch.</li>
+            <li>Completed checks, findings, and blockers.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>One explicit transfer</h3>
+          <p>The outgoing player writes the handoff. From Courtside, you attach to the receiving player’s native terminal, deliver the handoff, and confirm receipt. Return to the TUI and use Pass to record the transfer. Then reattach and tell the receiving player to begin. The receiver waits for that explicit go-ahead. Use the same procedure for Penny’s initial assignment; the TUI does not send a start-work prompt. If delivery is uncertain, inspect the terminal before continuing.</p>
+          <p>The prior owner remains accountable until the coach confirms transfer. Writing a note or observing an idle terminal never moves the ball automatically.</p>
+        </div>
+      </div>
+      <p><strong>Bring in the sixth man when useful:</strong> if a player is blocked or lacks a needed specialty, call a substitution, preserve the possession, and continue from the handoff. Demonstrate this after the basic possession works.</p>
+    </section>
+
+    <section id="scoreboard" aria-labelledby="scoreboard-title">
+      <span class="section-no">04 · Courtside</span>
+      <h2 id="scoreboard-title">A basketball TUI you can coach from.</h2>
+      <p><strong>Courtside is the demo’s main interface.</strong> Launch <code>dreamteam</code> into one polished Textual screen. Use a coding-agent terminal layout: Coach, the starting five, and The Answer in a slim sidebar. Coach opens its own interactive Codex conversation for calling plays and assigning work; selecting a player opens that player's terminal in the same main area. Herdr remains the session runtime underneath.</p>
+      <pre class="tui-preview" aria-label="Courtside with the Coach Codex conversation selected"><code><span class="tui-violet">&gt;_</span> Dreamteam / Courtside                               <span class="tui-muted">You direct · Coach + 6 players
+~/Developer/fastbreak</span>
+
+<span class="tui-selected"><span class="tui-accent">›</span> C Coach             </span> │ <span class="tui-accent">Coach · Codex · LIVE</span>
+    ● working           │ Play 001 · planned · Ball: unassigned
+Starting five           │ Build Fastbreak's API wrapper and CLI foundation.
+  1 Penny               │
+    PG · ● working      │ <span class="tui-accent">&gt;</span> Ask Penny to inspect the API offline and plan the CLI.
+  2 Air Jordan          │
+    SG · ○ stopped      │ • Called dreamteam.team_status
+  3 King James          │ • Called dreamteam.dispatch_task
+    SF · ○ stopped      │   Penny: assignment submitted
+  4 Sir Charles         │
+    PF · ○ stopped      │ Penny is preparing the plan. Select 1 to follow
+  5 Shaq                │ his session. I will check his report before
+    C · ○ stopped       │ proposing the next assignment.
+                        │
+Bench                   │
+  6 The Answer          │
+    6th · ○ stopped     │ <span class="tui-accent">&gt;</span> Ask Coach to call a play
+                        │
+C coach · 1–6 players   │
+
+Ctrl+G releases input · C Coach · Enter type here
+n new play · b brief · s start · x stop · q quit</code></pre>
+      <p class="muted">Design mockup only; the shown play and session activity are illustrative. The working TUI must display actual observations and recorded evidence. All six players use Codex.</p>
+      <div class="two-col">
+        <div class="card">
+          <h3>What stays visible</h3>
+          <ul>
+            <li><strong>Coach sidebar entry:</strong> selects an interactive Codex conversation that reads team state and sends bounded assignments when you ask. It is separate from every player terminal.</li>
+            <li><strong>Roster rail and bench:</strong> each name, position, and session activity. Selection and ball ownership have distinct markers.</li>
+            <li><strong>Main workspace:</strong> Coach's Codex conversation or the selected player's terminal, with a compact saved-play summary. Future handoffs, checks, reviews, and blockers belong with the recorded play evidence.</li>
+            <li><strong>Pass history:</strong> recorded transfers and meaningful task events, including failures and acceptance.</li>
+            <li><strong>Keyboard footer:</strong> visible controls and a clear focus state.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Visual direction</h3>
+          <p>Use the visual language of coding-agent CLIs: a compact identity and project-path header, near-black background, cool gray text, and muted metadata. Borrow Herdr’s slim session navigation and <a href="https://getfresh.dev/">Fresh’s</a> compact, text-led terminal conventions. A single divider separates the roster from the main workspace; avoid dashboard cards, heavy frames, and large button treatments.</p>
+          <p>Keep basketball in the names, positions, starting five, bench, possessions, and passes. Blend Ghostty’s Ultra Dark with <a href="https://www.nordtheme.com/docs/colors-and-palettes/">Nord</a> and <a href="https://github.com/folke/tokyonight.nvim">Tokyo Night</a>: use near-black <code>#080a0f</code> for the base, Nord’s <code>#d8dee9</code> for text, Tokyo Night’s <code>#7aa2f7</code> for selection and key hints, and <code>#bb9af7</code> for occasional violet accents. Keep green for idle, amber for blocked, and rose for errors. Pair activity markers with readable words: working, idle, blocked, stopped, or unknown. Render coaching actions as plain text hints. A focused player terminal accepts real Codex input; Ctrl+G returns to coaching. Natural-language team requests go to Coach's own Codex conversation; direct player input goes only to the selected player.</p>
+          <p>At 120 columns, leave generous room for the main workspace. At 80 columns, tighten spacing while keeping Coach and all six names and activity labels visible. The project path, selection, input-focus guidance, and keyboard controls remain readable.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Control</th><th scope="col">Coaching action</th></tr></thead>
+          <tbody>
+            <tr><td><code>c</code> · Coach</td><td>Select Coach in the sidebar. Enter starts or opens its Codex conversation. Prompt it to assign work or check progress. Ctrl+G returns here from a live player terminal.</td></tr>
+            <tr><td><code>1</code>–<code>6</code> / ↑↓</td><td>Select a player, or navigate between Coach and the players. Selecting never transfers the ball.</td></tr>
+            <tr><td><code>s</code> / <code>x</code></td><td>Start the selected player, or confirm stopping that specific session. Verify its binding before acting.</td></tr>
+            <tr><td>Enter · Type here</td><td>Control the selected Codex terminal inline. With Coach selected, start its conversation if needed. Ctrl+G releases player input and selects Coach; no extra pane is created.</td></tr>
+            <tr><td><code>o</code> · Separate view</td><td>Open or reuse an optional native Herdr player pane. An existing attachment must detach before another view can control the player.</td></tr>
+            <tr><td><code>n</code> · New Play</td><td>Save the project folder, goal, constraints, and acceptance criteria. Prepare the brief for Penny; leave the ball unassigned.</td></tr>
+            <tr><td><code>b</code> · Brief</td><td>Read Penny’s planning brief. Ctrl+Y requests a copy; Esc returns. Delivery stays manual.</td></tr>
+            <tr><td><code>p</code> · Pass</td><td>Choose the receiver and handoff note, inspect the candidate and checks, and confirm the transfer after delivery is acknowledged. Then attach and explicitly tell the receiver to begin.</td></tr>
+            <tr><td><code>a</code> · Accept</td><td>Review the current candidate’s checks and findings, then explicitly accept the possession. Keyboard focus alone never records acceptance.</td></tr>
+            <tr><td><code>r</code> / <code>q</code></td><td>Refresh activity, or choose Stop team and quit (default), Keep running and quit, or Cancel. Both exit choices release the inline client.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Core demo boundary:</strong> one screen, one active possession, six named Codex players, and the coaching controls above. The TUI shows evidence and provides a live Codex viewport with keyboard input. A small ANSI screen parser renders Herdr frames; Herdr still owns the actual terminal and agent process. Full scrollback, mouse passthrough, animations, and standalone CLI parity are outside this slice.</p>
+    </section>
+
+    <section id="architecture" aria-labelledby="architecture-title">
+      <span class="section-no">05 · Under the hood</span>
+      <h2 id="architecture-title">Keep the implementation small enough to finish.</h2>
+      <figure>
+        <div class="flow" aria-label="You direct Dreamteam; Dreamteam calls Herdr; Herdr runs separate Codex sessions for the six players">
+          <div class="flow-box"><strong>You · Coach</strong><small>Calls plays · confirms passes · accepts results</small></div>
+          <div class="arrow" aria-hidden="true">↓</div>
+          <div class="flow-box primary"><strong>Dreamteam · Python + Textual TUI</strong><small>Courtside · player controls · possession · handoffs · evidence</small></div>
+          <div class="arrow" aria-hidden="true">↓</div>
+          <div class="flow-box"><strong>Herdr · terminal runtime</strong><small>Owned sessions and panes · native terminal interaction</small></div>
+          <div class="arrow" aria-hidden="true">↓</div>
+          <div class="flow-box"><strong>Penny · Air Jordan · King James · Sir Charles · Shaq · The Answer</strong><small>Separate player conversations and role briefs; Codex handles model calls, tools, and approvals</small></div>
+        </div>
+        <figcaption>You coach through Courtside. Dreamteam presents the team and runs your commands; Herdr owns the player sessions and provides direct terminal interaction.</figcaption>
+      </figure>
+      <p>Keep Python 3.12+ and add <strong>Textual</strong> for the required TUI. Use the standard library for configuration, subprocess calls, and local state. A few ordinary Python functions implement player lifecycle, possession, pass, and acceptance actions; the TUI calls them directly. One concrete Herdr wrapper handles bounded control calls and terminal attachment. No model SDK is needed while Codex owns the agent loops.</p>
+      <p>Use Textual containers and widgets for the roster rail, main workspace, forms, and event feed. Run bounded Herdr queries in background workers so refreshing activity cannot freeze keyboard input. Avoid overlapping refreshes; apply results on the UI thread. When a query fails, preserve the last observation with its age and mark current activity unknown.</p>
+      <p>For inline control, verify the selected player's runtime binding and open Herdr's NDJSON terminal controller against its immutable terminal ID. Render bounded ANSI frames with pyte; forward input and resize messages only after the controller grants the session. Keep the sidebar's Coach entry and roster visible while the main workspace shows the selected player's terminal. Ctrl+G, changing players, or leaving Courtside releases and reaps the client. No new pane or agent is created by inline control. Poll the selected player's read-only viewport while detached; label failed reads stale. One interactive attachment owns input at a time, with no automatic takeover.</p>
+      <p>O retains the optional Open alongside action, which creates or reuses an owned sibling viewer. Outside Herdr or when a split will not fit, show the explicit <code>dreamteam --view PLAYER</code> command. Quit offers Stop team and quit by default, with Keep running as an explicit choice. Verified cleanup closes owned viewer/player panes and empty named servers, preserves active user terminals, and reports remaining resources. A detached or failed native viewer exits rather than waiting in a reconnect loop.</p>
+      <p><strong>Interactive Coach console:</strong> you direct a separate Codex conversation from the Coach sidebar entry. Per-session stdio tools expose team status, recent player output, bounded dispatch, progress reports, short waits, and creation of the one saved play. No model SDK, API key, network listener, or global Codex configuration change is needed. A dispatch records intent before delivery, verifies the named session, and does not blindly retry uncertain input. New player sessions report through an actor-bound tool; Coach can record an explicit visible result from an older session with separate provenance. Status and reports are checked on request, not by a perpetual background watcher. Your acceptance remains separate from reported completion.</p>
+      <p>Coach shares the same terminal lifecycle as the players. Stopping the team stops Coach first. A tool process is pinned to that Coach launch and cannot dispatch after it is stopped or replaced. Changing sidebar views releases only the input client; it keeps the selected conversation available for later.</p>
+      <p class="source">Implementation references: <a href="https://textual.textualize.io/guide/layout/">Textual layouts</a>, <a href="https://textual.textualize.io/guide/workers/">background workers</a>, <a href="https://herdr.dev/docs/socket-api/">Herdr terminal sessions</a>, and <a href="https://pyte.readthedocs.io/en/latest/api.html">pyte screen parsing</a>.</p>
+      <p><strong>Identity:</strong> player IDs are <code>penny</code>, <code>air_jordan</code>, <code>king_james</code>, <code>sir_charles</code>, <code>shaq</code>, and <code>the_answer</code>; names are their display labels. Positions remain <code>pg</code>, <code>sg</code>, <code>sf</code>, <code>pf</code>, and <code>c</code>. The Answer (<code>the_answer</code>) starts on the bench as the sixth man. You direct the team through a separate <code>coach</code> session; it is reserved outside the six-player TOML roster. A substitution records the inherited position separately from player and session identity. All six players use Codex in this version, with separate sessions and role briefs. TUI selections and actions target the stable player ID.</p>
+      <div class="two-col">
+        <div class="card">
+          <h3>One launch command</h3>
+          <p><code>dreamteam</code><br>Open Courtside in the current project.</p>
+          <p>Player lifecycle, New Play, Pass, and Accept are TUI actions backed by ordinary Python functions. Use stable player IDs internally, including <code>the_answer</code>.</p>
+          <p class="muted">One active possession. New Play now saves a target project, goal, constraints, and acceptance criteria and prepares its brief for Penny, with the ball still unassigned. Pass will record your confirmed transfer; Accept will record your explicit acceptance. These actions do not infer completion or deliver prompts automatically. Standalone CLI command parity is outside the demo scope.</p>
+        </div>
+        <div class="card">
+          <h3>Small local files</h3>
+          <p><code>dreamteam.toml</code><br>Roster, position assignments, tool launch arguments, and project directory.</p>
+          <p><code>.dreamteam/possessions/001/</code><br>Beside the roster: authoritative <code>state.json</code> and a derived Penny <code>brief.md</code>. Handoff notes and candidate evidence come with the next controls.</p>
+          <p><code>.dreamteam/runtime.json</code><br>In the target project: runtime bindings verified with Herdr before acting. A different play project uses its own runtime; existing sessions are never relabeled or moved.</p>
+        </div>
+      </div>
+      <p>The first target project is Fastbreak, an agentic trading platform. Its first development play is a small Python wrapper and CLI over the official TWS API: help, offline diagnostics, and a bounded connection-status command tested with simulated responses. Strategy work and execution come later.</p>
+      <p>Persist the possession across terminal restarts. Keep narrative evidence in Markdown and machine state in JSON; do not maintain conflicting owner fields in both. Write state atomically and reject overlapping mutations. For the first demo, complete one possession before starting another.</p>
+      <details>
+        <summary>Named roster — all six players use Codex</summary>
+        <pre><code>version = 1
+
+# You coach the team. The roster contains only agent players.
+
+[players.penny]
+name = "Penny"
+position = "pg"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.air_jordan]
+name = "Air Jordan"
+position = "sg"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.king_james]
+name = "King James"
+position = "sf"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.sir_charles]
+name = "Sir Charles"
+position = "pf"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.shaq]
+name = "Shaq"
+position = "c"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.the_answer]
+name = "The Answer"
+position = "bench"
+agent = "codex"
+cwd = "."
+args = []</code></pre>
+        <p>Use your existing Codex installation and login for every player. Different responsibilities and separate sessions distinguish the teammates. Resolve directories relative to the configuration file and keep launch arguments as lists.</p>
+      </details>
+      <div class="note">
+        <p><strong>First working slice, 11 October:</strong> The Courtside roster and session controls now run on macOS with Textual 8.2.8, Herdr 0.9.3, and Codex CLI 0.162.1. Live checks verified player startup, native prompt/response, attach and return, reconnect after quitting Courtside, duplicate-start prevention, and stopping one player while another remains running. Native approval dialogs and recovery after a server restart have not been verified. The terminal styling follows the coding-agent direction. New Play now saves one planned, unassigned possession and routes player sessions to its target project. B opens Penny’s optional planning brief; Ctrl+Y requests a copy for manual delivery. Save/copy never sends prompts. Coach's separate interactive session can now dispatch requested tasks and read explicit progress through local tools. Confirmed passes and acceptance remain planned. See <a href="README.md">README.md</a> for launch instructions and the current implementation boundary.</p>
+      </div>
+    </section>
+
+    <section id="rules" aria-labelledby="rules-title">
+      <span class="section-no">06 · Rules of play</span>
+      <h2 id="rules-title">A basket needs evidence.</h2>
+      <ul>
+        <li><strong>One ball, one accountable owner.</strong> Keep a single writer for the active candidate. Parallel edits and automatic worktree management wait until a later version.</li>
+        <li><strong>Freeze the candidate for checks and review.</strong> PF and C refer to the same identifiable revision or saved patch. New edits invalidate the relevant earlier evidence.</li>
+        <li><strong>Activity is not the score.</strong> Working, idle, blocked, stopped, and unknown describe sessions. Planned, in progress, in review, and accepted describe the possession. Only the coach accepts.</li>
+        <li><strong>Unknown stays unknown.</strong> An unreachable backend does not prove a player stopped. Verify session, pane, and project identity before start, attach, or stop. Refuse ambiguous targets.</li>
+        <li><strong>Repeated start does not duplicate a player.</strong> Reuse a verified live binding. Stop only the selected Dreamteam-owned pane; never the user’s entire Herdr server.</li>
+        <li><strong>A substitution preserves the play.</strong> Record the outgoing player, incoming player, inherited position, candidate, and handoff. Do not transfer responsibility to two players at once.</li>
+        <li><strong>Native approvals stay visible.</strong> Let Codex ask for approvals in each player session. Detaching from a terminal and recovering after a server restart are separate behaviors to verify.</li>
+        <li><strong>Automation comes with an explicit completion signal.</strong> If programmatic delivery is added, inspect after a timeout before retrying. Do not equate idle, successful input delivery, or a completed wait with a finished assignment.</li>
+      </ul>
+    </section>
+
+    <section id="build" aria-labelledby="build-title">
+      <span class="section-no">07 · Today’s build</span>
+      <h2 id="build-title">Build Courtside, then run one complete possession.</h2>
+      <p>The target is a polished, responsive TUI driving a live, repeatable possession: a real diff, visible passes, check evidence, and your acceptance. Build one screen and its essential actions first. Reassess the time available after the Herdr integration check; the TUI remains part of the demo when scope is reduced.</p>
+      <div class="milestone">
+        <h3>1. Prove the terminal handoff</h3>
+        <p>Use a minimal Textual screen and one isolated Herdr session. Create the pane, launch Codex, attach from the TUI, interact with approvals, detach, and return to the screen. Reconnect and stop only that owned pane. Inspect actual identifiers and response shapes, then verify a second named Codex player has a separate conversation and runtime binding.</p>
+      </div>
+      <div class="milestone">
+        <h3>2. Build the Courtside screen</h3>
+        <p>Extend the terminal roster and bench with possession details, the selected player’s handoff, an event feed, and plain keyboard hints. Add roster validation and wire up start, attach, refresh, and stop through the same Python actions. Give each player its role brief. Verify duplicate-start protection and stale or ambiguous bindings. Preserve the near-black terminal palette, sparse text layout, cool Nord text, and restrained Tokyo Night accents.</p>
+      </div>
+      <div class="milestone">
+        <h3>3. Wire the coaching controls</h3>
+        <p>New Play is implemented. Next add confirmed Pass and Accept forms, candidate evidence, and handoff history to the saved possession. Keep assignment delivery in native terminals. Verify selection, form validation, incomplete-handoff rejection, and acceptance against the current candidate. Idle never scores a possession. Use focused Textual interaction checks plus a live Herdr smoke check.</p>
+      </div>
+      <div class="milestone">
+        <h3>4. Polish and rehearse the live demo</h3>
+        <p>Complete one small change from Courtside, collect PF’s checks and C’s review, and record your decision in the TUI. Verify attach-and-return, keyboard focus, resize behavior, readable contrast, and an unavailable-backend state. Rehearse with the actual terminal and capture the real run. Try a sixth-man substitution only after the main flow works.</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <h3>If time gets tight</h3>
+          <p>Keep the TUI, all six player cards, player selection, native attachment, current possession, pass history, and explicit acceptance. Run a shorter PG → SG → C possession inside Courtside. You run and record the checks and mark unused positions as sitting out.</p>
+          <p>Cut animations, elaborate court art, searchable history, standalone CLI command parity, and substitution controls before reducing the core screen. Preserve clear typography, spacing, status labels, and a real change with review and acceptance.</p>
+        </div>
+        <div class="card">
+          <h3>After a working demo</h3>
+          <p>Add The Answer’s substitutions if they did not make today’s cut. Refine the plays and handoff shortcuts based on what helps you coach the team.</p>
+          <p>Concurrent possessions, automated worktrees, remote operation, budgets, and automatic merging stay outside today’s scope.</p>
+        </div>
+      </div>
+      <p><strong>Demo story:</strong> “This is Courtside. I coach these six Codex players from this screen. I call a play, open a player’s session, return to Courtside, and pass the ball. These are the change, checks, and review that let me accept the possession.”</p>
+    </section>
+  </main>
+  <footer>
+    <div class="wrap">Dreamteam · Basketball-first design · Revised 11 October 2026 · Target design with roster/session controls, New Play, and an interactive Coach implemented. Confirmed passes and acceptance remain planned. You are the coach; the roster contains six agent players. The Courtside TUI is required for the demo; build timing remains provisional.</div>
+  </footer>
+</body>
+</html>

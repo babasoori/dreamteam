@@ -1,0 +1,45 @@
+version = 1
+
+# You coach the team. The roster contains only agent players.
+
+[players.penny]
+name = "Penny"
+position = "pg"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.air_jordan]
+name = "Air Jordan"
+position = "sg"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.king_james]
+name = "King James"
+position = "sf"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.sir_charles]
+name = "Sir Charles"
+position = "pf"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.shaq]
+name = "Shaq"
+position = "c"
+agent = "codex"
+cwd = "."
+args = []
+
+[players.the_answer]
+name = "The Answer"
+position = "bench"
+agent = "codex"
+cwd = "."
+args = []

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dreamteam"
+version = "0.1.0"
+description = "Coach your Codex roster from Courtside."
+requires-python = ">=3.12"
+dependencies = [
+    "pyte>=0.8.2,<0.9",
+    "textual>=6,<9",
+]
+
+[project.scripts]
+dreamteam = "dreamteam.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
