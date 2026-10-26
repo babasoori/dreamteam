@@ -1157,9 +1157,10 @@ class CourtsideApp(App[str | None]):
         state = "LIVE · Type here" if terminal.connected else "Connecting"
         if self._terminal_close_failed:
             state = "Input stopped · release incomplete"
-        self.query_one("#preview-label", Static).update(
-            f"{player.name} · {state} · Ctrl+G coach"
-        )
+        label = self.query_one("#preview-label", Static)
+        text = f"{player.name} · {state} · Ctrl+G coach"
+        if label.content != text:
+            label.update(text)
 
     def _poll_terminal(self) -> None:
         if not self.is_running:

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Callable
+import unicodedata
 
 import pyte
 from rich.segment import Segment
 from rich.style import Style
 from textual import events
+from textual.geometry import Region
 from textual.message import Message
 from textual.reactive import reactive
 from textual.strip import Strip
@@ -103,6 +105,14 @@ class _Screen(pyte.Screen):
     def write_process_input(self, data: str) -> None:
         self._reply(data.encode("utf-8"))
 
+    def draw(self, data: str) -> None:
+        # pyte can combine with the preceding row's final cell, but only marks
+        # the current row dirty when drawing starts at column zero.
+        if (data and self.cursor.x == 0 and self.cursor.y > 0
+                and unicodedata.combining(data[0])):
+            self.dirty.add(self.cursor.y - 1)
+        super().draw(data)
+
 
 class TerminalWidget(Widget, can_focus=True):
     """Focus routes typing to one existing player; Ctrl+G returns to coaching.
@@ -167,9 +177,22 @@ class TerminalWidget(Widget, can_focus=True):
 
     def feed(self, data: bytes | str) -> None:
         """Apply an ANSI frame, retaining screen state between delta frames."""
+        cursor = self.terminal_screen.cursor
+        previous_cursor = (cursor.x, cursor.y, cursor.hidden)
         self._stream.feed(data.encode("utf-8") if isinstance(data, str) else data)
+        dirty = set(self.terminal_screen.dirty)
         self.terminal_screen.dirty.clear()
-        self.refresh()
+        cursor = self.terminal_screen.cursor
+        if (self.connected and self.has_focus
+                and previous_cursor != (cursor.x, cursor.y, cursor.hidden)):
+            # Cursor movement and visibility changes need not dirty pyte's
+            # character cells. Erase the old cursor and paint the new one.
+            if not previous_cursor[2]:
+                dirty.add(previous_cursor[1])
+            if not cursor.hidden:
+                dirty.add(cursor.y)
+        if dirty:
+            self.refresh(*(Region(0, y, self.size.width, 1) for y in sorted(dirty)))
 
     def reset_terminal(self) -> None:
         """Clear the viewport and parser before connecting to a different stream."""
@@ -179,7 +202,10 @@ class TerminalWidget(Widget, can_focus=True):
 
     def resize_terminal(self, columns: int, rows: int) -> None:
         """Match the server frame dimensions without generating a resize request."""
-        self.terminal_screen.resize(columns=max(1, columns), lines=max(1, rows))
+        columns, rows = max(1, columns), max(1, rows)
+        if (columns, rows) == (self.columns, self.rows):
+            return
+        self.terminal_screen.resize(columns=columns, lines=rows)
         self.refresh()
 
     def on_resize(self, event: events.Resize) -> None:
@@ -229,8 +255,9 @@ class TerminalWidget(Widget, can_focus=True):
 
     def render_line(self, y: int) -> Strip:
         width = self.size.width
+        base_style = self.rich_style
         if y >= self.rows:
-            return Strip.blank(width, self.rich_style)
+            return Strip.blank(width, base_style)
         cursor = self.terminal_screen.cursor
         show_cursor = self.connected and self.has_focus and not cursor.hidden
         segments = []
@@ -243,8 +270,8 @@ class TerminalWidget(Widget, can_focus=True):
             data = "".join(c for c in char.data if ord(c) >= 32 and not 127 <= ord(c) < 160)
             segments.append(Segment(
                 data or " ",
-                self.rich_style + _style(
+                base_style + _style(
                     char, show_cursor and y == cursor.y and column == min(cursor.x, self.columns - 1)
                 ),
             ))
-        return Strip(segments).adjust_cell_length(width, self.rich_style)
+        return Strip(segments).adjust_cell_length(width, base_style)
