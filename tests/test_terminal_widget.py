@@ -1,5 +1,6 @@
 """Embedded terminal rendering and input: no processes or agent sessions."""
 import unittest
+from unittest.mock import patch
 
 from textual import events
 from textual.app import App, ComposeResult
@@ -117,6 +118,49 @@ class TerminalHarness(App):
 
 
 class WidgetTests(unittest.IsolatedAsyncioTestCase):
+    async def test_delta_updates_repaint_changed_rows_and_both_cursor_positions(self):
+        app = TerminalHarness()
+        async with app.run_test(size=(80, 20)) as pilot:
+            terminal = app.query_one(TerminalWidget)
+            terminal.resize_terminal(80, 8)
+            terminal.connected = True
+            terminal.focus()
+            terminal.feed("ready")
+            await pilot.pause()
+            rendered = {}
+            render_line = terminal.render_line
+
+            def render(y):
+                strip = render_line(y)
+                rendered[y] = strip
+                return strip
+
+            with patch.object(terminal, "render_line", side_effect=render):
+                # Moving the cursor alone doesn't dirty pyte's character cells.
+                terminal.feed("\x1b[3;2H")
+                await pilot.pause()
+                self.assertEqual(set(rendered), {0, 2})
+                self.assertFalse(any(segment.style.reverse for segment in rendered[0]))
+                self.assertTrue(any(segment.style.reverse for segment in rendered[2]))
+
+                rendered.clear()
+                terminal.feed("\x1b[?25l")
+                await pilot.pause()
+                self.assertEqual(set(rendered), {2})
+                self.assertFalse(any(segment.style.reverse for segment in rendered[2]))
+
+                rendered.clear()
+                terminal.feed("\x1b[5;1Hchanged")
+                await pilot.pause()
+                self.assertEqual(set(rendered), {4})
+                self.assertTrue(rendered[4].text.startswith("changed"))
+
+                rendered.clear()
+                terminal.resize_terminal(80, 8)
+                terminal.feed("\x1b[31m")
+                await pilot.pause()
+                self.assertEqual(rendered, {})
+
     async def test_all_typing_belongs_to_focused_player_until_control_g(self):
         app = TerminalHarness()
         async with app.run_test(size=(80, 20)) as pilot:
@@ -131,6 +175,22 @@ class WidgetTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.release_count, 1)
             self.assertEqual(app.focused.id, "roster")
             self.assertNotIn(b"\x07", app.input_bytes)
+
+    async def test_combining_mark_on_next_row_repaints_previous_row(self):
+        app = TerminalHarness()
+        async with app.run_test(size=(40, 16)) as pilot:
+            terminal = app.query_one(TerminalWidget)
+            terminal.resize_terminal(4, 2)
+            terminal.feed("abce\r\n")
+            await pilot.pause()
+            with patch.object(terminal, "render_line", wraps=terminal.render_line) as render:
+                # Split UTF-8 must still invalidate the row whose cell changes.
+                mark = "\u0301".encode()
+                terminal.feed(mark[:1])
+                terminal.feed(mark[1:])
+                await pilot.pause()
+                self.assertIn(0, {call.args[0] for call in render.call_args_list})
+            self.assertTrue(terminal.render_line(0).text.startswith("abcé"))
 
     async def test_leaving_the_terminal_releases_input_once(self):
         app = TerminalHarness()

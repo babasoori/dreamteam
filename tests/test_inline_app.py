@@ -284,6 +284,25 @@ class InlineAppTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(app._terminal_session, session)
             self.assertIn("Codex ready", "\n".join(terminal.terminal_screen.display))
 
+    async def test_streamed_frames_keep_live_label_and_unchanged_rows_out_of_layout(self):
+        app, backend = self.make_app()
+        async with app.run_test(size=(100, 32)) as pilot:
+            await self.select_penny(app, pilot)
+            session, terminal = await self.connect(app, pilot)
+            label = app.query_one("#preview-label", Static)
+            with patch.object(label, "update", wraps=label.update) as update_label:
+                with patch.object(terminal, "render_line", wraps=terminal.render_line) as render:
+                    for sequence, data in enumerate((b"\x1b[3;1Hfirst", b" second"), 1):
+                        session.frames.append(TerminalFrame(
+                            data, terminal.columns, terminal.rows, False, sequence,
+                        ))
+                    app._poll_terminal()
+                    update_label.assert_not_called()
+                    await pilot.pause()
+                    self.assertEqual({call.args[0] for call in render.call_args_list}, {0, 2})
+            self.assertTrue(terminal.terminal_screen.display[2].startswith("first second"))
+            self.assertIn("LIVE · Type here", label.content)
+
     async def test_lost_player_verification_releases_input_without_stopping_team(self):
         for state in ("stopped", "unknown", "unavailable"):
             with self.subTest(state=state):
