@@ -6,11 +6,8 @@ import argparse
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-import shlex
-import subprocess
 import sys
 import time
-from typing import Any
 
 from rich.text import Text
 from textual import events, work
@@ -23,10 +20,7 @@ from textual.widgets import Button, Footer, Input, ListItem, ListView, Static, T
 from .plays import Play, PlayStore, brief_text
 from .coordination import coach_player, coordinated_player
 from .roster import Player, load_roster
-from .runtime import BackendError, Herdr, Observation, Preview
-from .views import NativeViews
-from .terminal_session import TerminalClosed, TerminalFrame, TerminalSession, TerminalSessionError
-from .terminal_widget import TerminalWidget
+from .runtime import BackendError, Rex, Observation, Preview
 
 
 # Ultra Dark base, Nord text and status colors, Tokyo Night accents.
@@ -57,7 +51,7 @@ def clock_time(timestamp: float) -> str:
 
 class RosterList(ListView):
     BINDINGS = [
-        Binding("enter", "select_cursor", "Type here"),
+        Binding("enter", "select_cursor", "Open tab"),
         Binding("up", "app.previous_player", show=False),
         Binding("down", "app.next_player", show=False),
     ]
@@ -102,7 +96,7 @@ class StopPlayer(ModalScreen[bool]):
         with Vertical(id="stop-dialog"):
             yield Static(f"Stop {self.player.name}?", id="stop-title", markup=False)
             yield Static(
-                "This closes this player's owned Herdr pane and ends its running session. "
+                "This closes this player's owned Rex pane and ends its running session. "
                 "Other players keep running.",
                 markup=False,
             )
@@ -268,47 +262,6 @@ class PlayBrief(ModalScreen[None]):
         self.dismiss()
 
 
-class ViewHelp(ModalScreen[None]):
-    """Keep Courtside present when a native split is unavailable."""
-
-    BINDINGS = [Binding("escape", "close", "Close"),
-                Binding("ctrl+y", "copy", "Copy command", priority=True)]
-    CSS = """
-    ViewHelp { align: center middle; background: #080a0f 80%; }
-    #view-dialog { width: 86; max-width: 96%; height: auto; max-height: 95%;
-                   padding: 1 2; border: round #4c566a; background: #16161e; }
-    #view-error { height: auto; max-height: 5; color: #ebcb8b; margin-bottom: 1; }
-    #view-command { height: 5; border: none; background: #080a0f; color: #d8dee9; }
-    #view-instructions { height: auto; margin-bottom: 1; }
-    #view-copy { height: auto; color: #88c0d0; margin-top: 1; }
-    """
-
-    def __init__(self, player: Player, command: list[str], reason: str) -> None:
-        super().__init__()
-        self.player = player
-        self.command = shlex.join(command)
-        self.reason = reason
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="view-dialog"):
-            yield Static(self.reason, id="view-error", markup=False)
-            yield Static(
-                f"Keep Courtside here. Open a terminal split or tab and run this command for {self.player.name}. "
-                "Only one view can accept typing; Courtside's output preview can stay open in every tab.",
-                id="view-instructions", markup=False,
-            )
-            yield TextArea(self.command, read_only=True, id="view-command")
-            yield Static("Ctrl+Y copy command · Esc close", id="view-copy", markup=False)
-
-    def action_copy(self) -> None:
-        self.app.copy_to_clipboard(self.command)
-        self.query_one("#view-copy", Static).update("Copy requested · Esc close")
-
-    def action_close(self) -> None:
-        self.dismiss(None)
-
-
-
 class QuitTeam(ModalScreen[str | None]):
     """Make background session persistence an explicit choice."""
 
@@ -328,8 +281,8 @@ class QuitTeam(ModalScreen[str | None]):
         with Vertical(id="quit-dialog"):
             yield Static("Finish coaching?", id="quit-title", markup=False)
             yield Static(
-                "Stop team closes verified player sessions and managed viewer panes, then stops "
-                "empty Dreamteam servers. Running tasks will end. Your active terminal and "
+                "Stop team closes verified player tabs. Running tasks will end. "
+                "Your Rex server, active terminal, and "
                 "unrelated panes are preserved; any remaining resources are reported.",
                 id="quit-detail", markup=False,
             )
@@ -349,7 +302,7 @@ class QuitTeam(ModalScreen[str | None]):
 
 
 class CourtsideApp(App[str | None]):
-    """All backend operations are serialized; session state belongs to Herdr."""
+    """All backend operations are serialized; session state belongs to Rex."""
 
     TITLE = "Dreamteam · Courtside"
     ENABLE_COMMAND_PALETTE = False
@@ -366,7 +319,7 @@ class CourtsideApp(App[str | None]):
         Binding("n", "new_play", "New play"),
         Binding("b", "view_brief", "Brief"),
         Binding("s", "start_player", "Start"),
-        Binding("enter", "attach_player", "Type here"),
+        Binding("enter", "attach_player", "Open tab"),
         Binding("o", "open_alongside", "View"),
         Binding("r", "refresh_players", "Refresh"),
         Binding("x", "stop_player", "Stop"),
@@ -428,15 +381,6 @@ class CourtsideApp(App[str | None]):
     #coach-title { height: 1; color: #bb9af7; text-style: bold; }
     #coach-hint { height: 1; color: #9aa6b8; }
     #possession { height: auto; max-height: 2; color: #9aa6b8; text-wrap: nowrap; text-overflow: ellipsis; }
-    #player-terminal { display: none; }
-    .terminal-active #player-terminal { display: block; }
-    .terminal-active #preview-scroll, .terminal-active #session-content,
-    .terminal-active #attach-help, .terminal-active #next-action { display: none; }
-    .terminal-active #main-panel { padding-top: 0; }
-    .terminal-active #coach-title, .terminal-active #coach-actions,
-    .terminal-active #coach-hint { display: none; }
-    .terminal-active #coach-controls { margin-bottom: 0; }
-    .terminal-active #preview-label { margin-top: 0; }
     #player-name { color: #d8dee9; text-style: bold; height: 1; }
     #player-position { color: #9aa6b8; height: 1; }
     #directory { color: #9aa6b8; height: 1; text-overflow: ellipsis; text-wrap: nowrap; }
@@ -480,8 +424,8 @@ class CourtsideApp(App[str | None]):
     """
 
     def __init__(
-        self, players: tuple[Player, ...], backend: Herdr, *, play_store: PlayStore | None = None,
-        config: Path | None = None, views: NativeViews | None = None,
+        self, players: tuple[Player, ...], backend: Rex, *, play_store: PlayStore | None = None,
+        config: Path | None = None,
     ) -> None:
         super().__init__()
         if not players:
@@ -500,7 +444,6 @@ class CourtsideApp(App[str | None]):
         self.controller_coach = self.coach
         self.runtime_players = (self.coach, *self.players)
         self.controller_runtime_players = (self.controller_coach, *self.controller_players)
-        self.views = views if views is not None else NativeViews(self.config.parent)
         self.previews: dict[str, Preview] = {}
         self.preview_errors: dict[str, str] = {}
         self._preview_player_id: str | None = None
@@ -512,18 +455,12 @@ class CourtsideApp(App[str | None]):
         self.coach_selected = True
         self.busy = False
         self.observations = {
-            player.id: Observation("unknown", "Waiting for the first Herdr observation.")
+            player.id: Observation("unknown", "Waiting for the first Rex observation.")
             for player in self.runtime_players
         }
         self._last_known: dict[str, Observation] = {}
         self._report_refresh = False
         self._refresh_failed = False
-        self._terminal_session: TerminalSession | None = None
-        self._terminal_player_id: str | None = None
-        self._terminal_generation = 0
-        self._terminal_size = (80, 24)
-        self._terminal_sent_size: tuple[int, int] | None = None
-        self._terminal_close_failed = False
 
     def _route_project(self, play: Play) -> None:
         if not any(p.id == "penny" and p.position == "pg" for p in self.players):
@@ -536,7 +473,7 @@ class CourtsideApp(App[str | None]):
         )
         self.coach = coach_player(self.config, play.project)
         self.runtime_players = (self.coach, *self.players)
-        self.backend = Herdr(play.project)
+        self.backend = Rex(play.project)
 
     @property
     def selected_player(self) -> Player:
@@ -575,7 +512,7 @@ class CourtsideApp(App[str | None]):
                     with Vertical(id="coach-controls"):
                         yield Static("Coach · Codex", id="coach-title", markup=False)
                         yield Static("", id="possession", markup=False)
-                        yield Static("Prompt Coach below · N call a play · B brief", id="coach-hint", markup=False)
+                        yield Static("Enter opens Coach in Rex · N call a play · B brief", id="coach-hint", markup=False)
                         with Horizontal(id="coach-actions"):
                             yield Button("N  Call a play", id="coach-new-play")
                             yield Button("B  Open brief", id="coach-brief")
@@ -591,14 +528,13 @@ class CourtsideApp(App[str | None]):
                 yield Static("", id="preview-label", markup=False)
                 with VerticalScroll(id="preview-scroll"):
                     yield Static("", id="player-output", markup=False)
-                yield TerminalWidget(id="player-terminal")
                 yield Static(
-                    "Enter or click output to type here · Ctrl+G coach · O separate pane",
+                    "Enter / O opens the native Rex tab · Return using Rex tabs",
                     id="attach-help",
                     markup=False,
                 )
                 yield Static("", id="next-action", markup=False)
-        yield Static("Checking Herdr…", id="status", markup=False)
+        yield Static("Checking Rex…", id="status", markup=False)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -607,7 +543,6 @@ class CourtsideApp(App[str | None]):
         self._render_players()
         self.action_refresh_players()
         self.set_interval(3, self._automatic_refresh)
-        self.set_interval(1 / 30, self._poll_terminal)
 
     def on_resize(self) -> None:
         self.screen_stack[0].set_class(self.size.width < 100 or self.size.height < 34, "compact")
@@ -634,7 +569,7 @@ class CourtsideApp(App[str | None]):
         coach.set_class(self.coach_selected, "selected")
         coach.label = "› c  Coach" if self.coach_selected else "  c  Coach"
         self.bind("enter", "attach_player", description=(
-            "Coach" if self.coach_selected else "Type here"
+            "Coach" if self.coach_selected else "Open tab"
         ))
         self.refresh_bindings()
 
@@ -693,9 +628,6 @@ class CourtsideApp(App[str | None]):
         self._render_action_hint()
 
     def _render_preview(self) -> None:
-        if self._terminal_player_id is not None:
-            self._render_terminal_label()
-            return
         player = self.selected_session
         preview = self.previews.get(player.id)
         error = self.preview_errors.get(player.id)
@@ -721,9 +653,6 @@ class CourtsideApp(App[str | None]):
             if follow:
                 self.call_after_refresh(scroller.scroll_end, animate=False, x_axis=False)
 
-    def viewer_command(self, player: Player) -> list[str]:
-        return [sys.executable, "-m", "dreamteam.app", "--config", str(self.config), "--view", player.id]
-
     def action_new_play(self) -> None:
         if not self._can_operate():
             return
@@ -743,14 +672,14 @@ class CourtsideApp(App[str | None]):
         if play is None:
             return
         # No runtime operation can overlap the modal. Old project sessions remain owned
-        # by their own Herdr runtime; never relabel or reuse them for a different project.
+        # by their own Rex runtime; never relabel or reuse them for a different project.
         self.play = play
         try:
             self._route_project(play)
         except ValueError as exc:
             self._routing_error = str(exc)
         self.observations = {
-            p.id: Observation("unknown", self._routing_error or "Waiting for this project's first Herdr observation.")
+            p.id: Observation("unknown", self._routing_error or "Waiting for this project's first Rex observation.")
             for p in self.runtime_players
         }
         self._last_known.clear()
@@ -777,14 +706,14 @@ class CourtsideApp(App[str | None]):
         if self._routing_error:
             hint = Text("Project unavailable · Restore it and reopen Courtside", style=MUTED)
         elif self.busy:
-            hint = Text("Waiting for Herdr…", style=MUTED)
+            hint = Text("Waiting for Rex…", style=MUTED)
         elif activity == "stopped":
             key = "↵  " if self.coach_selected else "s  "
             hint = Text.assemble((key, ACCENT), (f"Start {player.name}", TEXT))
         elif activity == "unknown":
             hint = Text.assemble(("r  ", ACCENT), (f"Check {player.name}'s session", TEXT))
         else:
-            hint = Text.assemble(("↵  ", ACCENT), (f"Type to {player.name} here", TEXT))
+            hint = Text.assemble(("↵  ", ACCENT), (f"Open {player.name} in Rex", TEXT))
         self.query_one("#next-action", Static).update(hint)
 
     def _status(self, message: str, *, error: bool = False) -> None:
@@ -796,15 +725,13 @@ class CourtsideApp(App[str | None]):
         if len(self.screen_stack) > 1:
             return False
         if self.busy:
-            self._status("A Herdr operation is still running. Wait for it to finish.")
+            self._status("A Rex operation is still running. Wait for it to finish.")
             return False
-        return self._release_terminal()
+        return True
 
     def action_select_coach(self) -> None:
-        if len(self.screen_stack) > 1 or not self._release_terminal():
+        if len(self.screen_stack) > 1:
             return
-        if not self.coach_selected:
-            self._terminal_generation += 1
         self.coach_selected = True
         self._render_players()
         self.query_one("#coach-nav", Button).focus()
@@ -812,11 +739,6 @@ class CourtsideApp(App[str | None]):
     def action_select_player(self, index: int) -> None:
         if len(self.screen_stack) > 1 or not 0 <= index < len(self.players):
             return
-        if not self._release_terminal():
-            self.query_one("#roster", ListView).index = self.selected_index
-            return
-        if self.coach_selected or self.selected_index != index:
-            self._terminal_generation += 1
         self.coach_selected = False
         self.selected_index = index
         roster = self.query_one("#roster", ListView)
@@ -844,76 +766,37 @@ class CourtsideApp(App[str | None]):
         if self.play is not None and not self.play.project.is_dir():
             self._routing_error = f"Play project is unavailable: {self.play.project}"
         if self._routing_error:
-            if operation == "control":
-                self.busy = False
-                self._release_terminal()
             self._status(self._routing_error + " · Restore it and reopen Courtside.", error=True)
-            self._render_action_hint()
             return
         self.busy = True
         self._render_action_hint()
-        self._perform(
-            operation, self.selected_session if operation == "refresh" else player,
-            self._terminal_generation if operation in {"control", "coach_start"} else None,
-            self._terminal_size, self._terminal_player_id is None,
-        )
+        self._perform(operation, self.selected_session if operation == "refresh" else player)
 
     def action_start_player(self) -> None:
         if self._can_operate():
-            player = self.selected_session
-            self._status(f"Starting {player.name}…")
-            self._begin("start", player)
+            self._status(f"Starting {self.selected_session.name}…")
+            self._begin("start", self.selected_session)
 
     def action_attach_player(self) -> None:
         if not self._can_operate():
             return
         player = self.selected_session
-        if self.coach_selected and self.observations[player.id].activity == "stopped":
-            self._terminal_generation += 1
-            self._status("Starting Coach…")
-            self._begin("coach_start", player)
-            return
-        self._terminal_generation += 1
-        generation = self._terminal_generation
-        self._terminal_player_id = player.id
-        self._terminal_close_failed = False
-        self._terminal_sent_size = None
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        terminal.connected = False
-        terminal.input_generation = generation
-        terminal.reset_terminal()
-        self.screen_stack[0].add_class("terminal-active")
-        terminal.focus()
-        self.busy = True
-        self._render_players()
-        self._status(f"Connecting {player.name} here… Ctrl+G returns to coaching.")
-        # Use the expanded terminal's actual viewport after Textual lays it out.
-        self.call_after_refresh(self._begin_control, player, generation)
-
-    def _begin_control(self, player: Player, generation: int) -> None:
-        if generation != self._terminal_generation or player.id != self.selected_session.id:
-            self.busy = False
-            self._render_action_hint()
-            return
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        self._terminal_size = (min(1000, max(2, terminal.content_size.width)),
-                               min(1000, max(2, terminal.content_size.height)))
-        self._begin("control", player)
+        operation = ("coach_start" if self.coach_selected
+                     and self.observations[player.id].activity == "stopped" else "attach")
+        self._status(f"Opening {player.name} in Rex…")
+        self._begin(operation, player)
 
     def action_open_alongside(self) -> None:
-        if self._can_operate():
-            player = self.selected_session
-            self._status(f"Opening {player.name} alongside Courtside…")
-            self._begin("attach", player)
+        self.action_attach_player()
 
     def action_refresh_players(self) -> None:
         if self._can_operate():
-            self._status("Refreshing Herdr observations…")
+            self._status("Refreshing Rex observations…")
             self._report_refresh = True
             self._begin("refresh")
 
     def _automatic_refresh(self) -> None:
-        if (not self.busy and not self._routing_error and not self._terminal_close_failed
+        if (not self.busy and not self._routing_error
                 and len(self.screen_stack) == 1):
             self._begin("refresh")
 
@@ -935,9 +818,9 @@ class CourtsideApp(App[str | None]):
 
         def chosen(choice: str | None) -> None:
             if choice == "keep":
-                self.exit("Courtside closed. You chose to keep player sessions and viewer panes running.")
+                self.exit("Courtside closed. You chose to keep player sessions running.")
             elif choice == "stop":
-                self._status("Stopping managed views, players, and empty servers…")
+                self._status("Stopping managed Rex tabs…")
                 self.busy = True
                 self._render_action_hint()
                 self._perform("shutdown", None)
@@ -945,129 +828,71 @@ class CourtsideApp(App[str | None]):
         self.push_screen(QuitTeam(), chosen)
 
     @work(thread=True, exit_on_error=False)
-    def _perform(
-        self, operation: str, player: Player | None, generation: int | None = None,
-        terminal_size: tuple[int, int] = (80, 24), include_preview: bool = True,
-    ) -> None:
-        result: Any = None
-        error: str | None = None
+    def _perform(self, operation: str, player: Player | None) -> None:
+        result = None
+        error = None
         try:
             if operation == "shutdown":
-                reports = []
-                failures = []
-                operations = [self.views.close_all, lambda: self.backend.shutdown(self.runtime_players)]
+                reports = [self.backend.shutdown(self.runtime_players)]
                 if self.controller_backend is not self.backend:
-                    operations.append(lambda: self.controller_backend.shutdown(self.controller_runtime_players))
-                for cleanup in operations:
-                    try:
-                        reports.append(cleanup())
-                    except (BackendError, OSError) as exc:
-                        failures.append(str(exc))
-                result = "\n".join(report for report in reports if report)
-                if failures:
-                    raise BackendError(result + "\n" + "\n".join(failures))
+                    reports.append(self.controller_backend.shutdown(self.controller_runtime_players))
+                result = "\n".join(reports)
             elif operation == "refresh":
                 observations = self.backend.refresh(self.runtime_players)
-                preview = None
-                preview_error = None
-                if include_preview:
-                    try:
-                        preview = self.backend.preview(player)
-                    except (BackendError, OSError) as exc:
-                        preview_error = str(exc)
+                preview, preview_error = None, None
+                try:
+                    preview = self.backend.preview(player)
+                except (BackendError, OSError) as exc:
+                    preview_error = str(exc)
                 saved_play = self.play_store.load() if self.play_store is not None else None
                 result = observations, preview, preview_error, saved_play
-            elif operation == "control":
-                result = self.backend.control_command(player, *terminal_size)
             elif operation in {"start", "coach_start"}:
                 result = self.backend.start(player)
+                if operation == "coach_start" and result.pane_id:
+                    self.backend.open(player)
             elif operation == "stop":
                 self.backend.stop(player)
             elif operation == "attach":
-                self.backend.attachment(player)  # Verify the target before creating a viewer.
-                result = self.views.open(player, self.viewer_command(player))
+                result = self.backend.open(player)
         except BackendError as exc:
             if operation == "refresh" and exc.code == "runtime_busy":
                 operation = "refresh_deferred"
             else:
                 error = str(exc)
-        except OSError as exc:
-            error = str(exc)
         except Exception as exc:
-            error = f"Unexpected Herdr error: {type(exc).__name__}: {exc}"
-        self.call_from_thread(self._complete, operation, player, result, error, generation)
+            error = f"Rex operation failed: {exc}"
+        self.call_from_thread(self._complete, operation, player, result, error)
 
-    def _complete(
-        self,
-        operation: str,
-        player: Player | None,
-        result: Any,
-        error: str | None,
-        generation: int | None = None,
-    ) -> None:
+    def _complete(self, operation, player, result, error) -> None:
+        self.busy = False
         if operation == "refresh_deferred":
-            self.busy = False
-            self._render_action_hint()
-            if self._report_refresh:
-                self._status("Team operation in progress · Refresh will retry shortly.")
-                self._report_refresh = False
-            return
-        if operation == "control":
-            self.busy = False
-            if (generation != self._terminal_generation
-                    or player.id != self.selected_session.id
-                    or player.id != self._terminal_player_id):
-                self._render_action_hint()
-                return
-            if error is not None:
-                if self._release_terminal():
-                    self._status(f"Could not open {player.name} here: {error}", error=True)
-                return
-            command, environment = result
-            self._terminal_session = TerminalSession(command, environment)
-            try:
-                self._terminal_session.start()
-            except (TerminalSessionError, OSError) as exc:
-                if self._release_terminal():
-                    self._status(str(exc), error=True)
             self._render_action_hint()
             return
         if operation == "shutdown":
-            self.busy = False
             if error:
                 self._status("Cleanup incomplete: " + error, error=True)
                 self._render_action_hint()
             else:
                 self.exit(result)
             return
-        if error is not None:
+        if error:
+            if operation in {"attach", "coach_start"}:
+                self._status(error, error=True)
+                self._render_action_hint()
+                return
             if operation == "refresh":
                 self._refresh_failed = True
-            affected = self.runtime_players if operation == "refresh" else (player,)
-            if operation == "attach":
-                self.busy = False
-                self._render_action_hint()
-                self._status("Player view was not opened. See the separate-terminal command.", error=True)
-                self.push_screen(ViewHelp(player, self.viewer_command(player), error))
-                return
-            released = True
-            if operation == "refresh" and self._terminal_player_id is not None:
-                released = self._release_terminal()
-            for affected_player in affected:
-                self.preview_errors[affected_player.id] = error
-                previous = self.observations[affected_player.id]
-                self.observations[affected_player.id] = Observation(
-                    "unknown", error, previous.pane_id, time.time()
-                )
-            self.busy = False
+            for affected in self.runtime_players if operation == "refresh" else (player,):
+                self.preview_errors[affected.id] = error
+                previous = self.observations[affected.id]
+                self.observations[affected.id] = Observation("unknown", error, previous.pane_id, time.time())
             self._render_players()
-            if released:
-                self._status(error, error=True)
+            self._status(error, error=True)
             return
         if operation == "attach":
             self._status(result)
         elif operation == "refresh":
-            result, preview, preview_error, saved_play = result
+            observations, preview, preview_error, saved_play = result
             if self.play_store is not None:
                 if saved_play is not None and saved_play.project.resolve() != self.coach.cwd.resolve():
                     self._routing_error = "The saved play now targets a different project. Reopen Courtside to switch projects."
@@ -1076,219 +901,49 @@ class CourtsideApp(App[str | None]):
                 else:
                     self.play = saved_play
                 if self._routing_error:
-                    self.busy = False
-                    released = self._release_terminal()
                     self._render_players()
-                    if released:
-                        self._status(self._routing_error, error=True)
+                    self._status(self._routing_error, error=True)
                     return
-            if preview_error is not None:
+            if preview_error:
                 self.preview_errors[player.id] = preview_error
             elif preview is not None:
                 self.preview_errors.pop(player.id, None)
                 self.previews[player.id] = preview
-            for roster_player in self.runtime_players:
-                self.observations[roster_player.id] = result.get(
-                    roster_player.id,
-                    Observation("unknown", "Herdr returned no observation for this player."),
-                )
-                observation = self.observations[roster_player.id]
+            for member in self.runtime_players:
+                observation = observations.get(member.id, Observation("unknown", "No Rex observation."))
+                self.observations[member.id] = observation
                 if observation.activity == "stopped":
-                    self.previews.pop(roster_player.id, None)
-                    self.preview_errors.pop(roster_player.id, None)
+                    self.previews.pop(member.id, None)
+                    self.preview_errors.pop(member.id, None)
                 elif observation.activity == "unknown":
-                    self.preview_errors[roster_player.id] = observation.detail
-            terminal_invalid = False
-            if self._terminal_player_id is not None:
-                live_observation = self.observations[self._terminal_player_id]
-                terminal_invalid = live_observation.activity in {"unknown", "stopped"}
-                if terminal_invalid and self._release_terminal():
-                    self._status("Player identity is no longer verified; input released. " + live_observation.detail, error=True)
-            if (self._report_refresh or self._refresh_failed) and not terminal_invalid:
-                self._status("You coach · Q chooses stop team or keep running.")
-            self._report_refresh = False
-            self._refresh_failed = False
+                    self.preview_errors[member.id] = observation.detail
+            if self._report_refresh or self._refresh_failed:
+                self._status("Enter opens a Rex tab · Q chooses stop team or keep running.")
+            self._report_refresh = self._refresh_failed = False
         elif operation in {"start", "coach_start"}:
             self.observations[player.id] = result
-            if result.activity in {"unknown", "stopped"}:
-                self._status(f"{player.name}: Codex is not confirmed. Inspect activity before retrying.", error=True)
-            else:
-                self._status(f"{player.name}'s session is available. Enter lets you type here; O opens a separate pane.")
+            self._status(f"{player.name}: {result.detail} Enter opens its Rex tab.")
         elif operation == "stop":
-            self.observations[player.id] = Observation(
-                "stopped", "The owned session was stopped by the coach.", observed_at=time.time()
-            )
+            self.observations[player.id] = Observation("stopped", "The owned tab was stopped.", observed_at=time.time())
             self.previews.pop(player.id, None)
             self.preview_errors.pop(player.id, None)
-            self._status(f"{player.name}'s session stopped.")
-        for player_id, observation in self.observations.items():
+            self._status(f"{player.name}'s tab stopped.")
+        for key, observation in self.observations.items():
             if observation.activity != "unknown":
-                self._last_known[player_id] = observation
-        self.busy = False
+                self._last_known[key] = observation
         self._render_players()
-        if (operation == "coach_start" and self.coach_selected
-                and generation == self._terminal_generation
-                and self.observations[self.coach.id].activity not in {"unknown", "stopped"}):
-            self.action_attach_player()
-
-    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if isinstance(self.focused, TerminalWidget):
-            return False
-        if self.coach_selected and action == "select_coach":
-            return False
-        return True
 
     def on_click(self, event: events.Click) -> None:
         if event.widget is not None and event.widget.id in {"player-output", "preview-scroll", "preview-label"}:
             event.stop()
-            if self._terminal_player_id is None:
-                self.action_attach_player()
-
-    def on_descendant_blur(self, event: events.DescendantBlur) -> None:
-        if (self.is_running and isinstance(event.widget, TerminalWidget)
-                and not event.widget.has_focus and self._terminal_player_id is not None):
-            self._release_terminal()
-
-    def _render_terminal_label(self) -> None:
-        player = next((p for p in self.runtime_players if p.id == self._terminal_player_id), None)
-        if player is None:
-            return
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        state = "LIVE · Type here" if terminal.connected else "Connecting"
-        if self._terminal_close_failed:
-            state = "Input stopped · release incomplete"
-        label = self.query_one("#preview-label", Static)
-        text = f"{player.name} · {state} · Ctrl+G coach"
-        if label.content != text:
-            label.update(text)
-
-    def _poll_terminal(self) -> None:
-        if not self.is_running:
-            return
-        session = self._terminal_session
-        if session is None or self._terminal_close_failed:
-            return
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        try:
-            for record in session.poll():
-                if isinstance(record, TerminalClosed):
-                    if self._release_terminal():
-                        self._status(record.reason or "Input released · Player remains running. Q manages team shutdown.",
-                                     error=bool(record.reason))
-                    return
-                if not isinstance(record, TerminalFrame):
-                    continue
-                if self._terminal_player_id != self.selected_session.id:
-                    self._release_terminal()
-                    return
-                if record.full:
-                    terminal.reset_terminal()
-                terminal.resize_terminal(record.columns, record.rows)
-                if not terminal.connected and session.ready:
-                    if not terminal.has_focus:
-                        self._release_terminal()
-                        return
-                    terminal.connected = True
-                    self._status(f"Typing to {self.selected_session.name} · Ctrl+G returns to Coach.")
-                terminal.feed(record.data)
-                self._render_terminal_label()
-            self._resize_terminal_client()
-        except (TerminalSessionError, OSError, ValueError) as exc:
-            if self._release_terminal():
-                self._status(str(exc), error=True)
-
-    def _resize_terminal_client(self) -> None:
-        session = self._terminal_session
-        if (session is not None and session.ready and not self._terminal_close_failed
-                and self._terminal_size != self._terminal_sent_size):
-            session.resize(*self._terminal_size)
-            self._terminal_sent_size = self._terminal_size
-
-    def on_terminal_widget_resize(self, event: TerminalWidget.Resize) -> None:
-        event.stop()
-        if not self.is_running:
-            return
-        self._terminal_size = (min(1000, max(2, event.columns)), min(1000, max(2, event.rows)))
-        try:
-            self._resize_terminal_client()
-        except (TerminalSessionError, OSError) as exc:
-            if self._release_terminal():
-                self._status(str(exc), error=True)
-
-    def on_terminal_widget_input(self, event: TerminalWidget.Input) -> None:
-        event.stop()
-        session = self._terminal_session
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        if session is None or not terminal.connected or self._terminal_close_failed:
-            return
-        try:
-            session.send(event.data)
-        except (TerminalSessionError, OSError) as exc:
-            if self._release_terminal():
-                self._status(str(exc), error=True)
-
-    def on_terminal_widget_released(self, event: TerminalWidget.Released) -> None:
-        event.stop()
-        if event.generation is not None and event.generation != self._terminal_generation:
-            return
-        if self._release_terminal():
-            if event.to_coach:
-                self.action_select_coach()
-                self._status("Coach controls active · Player remains running. Q manages team shutdown.")
-
-    def on_terminal_widget_attach_requested(self, event: TerminalWidget.AttachRequested) -> None:
-        event.stop()
-        if self._terminal_player_id is None:
             self.action_attach_player()
 
-    def _release_terminal(self) -> bool:
-        """Release only our input client; failed cleanup stays owned and visible."""
-        if self._terminal_player_id is None and self._terminal_session is None:
-            return True
-        self._terminal_generation += 1
-        terminal = self.query_one("#player-terminal", TerminalWidget)
-        terminal.connected = False
-        if self._terminal_session is not None:
-            try:
-                self._terminal_session.close()
-            except Exception as exc:
-                self._terminal_close_failed = True
-                terminal.focus()
-                self._render_terminal_label()
-                self._status("Could not release the terminal client: " + str(exc)
-                             + " · Ctrl+G retries; other actions remain blocked.", error=True)
-                return False
-        self._terminal_session = None
-        self._terminal_player_id = None
-        self._terminal_close_failed = False
-        self._terminal_sent_size = None
-        self.screen_stack[0].remove_class("terminal-active")
-        if self.coach_selected:
-            self.query_one("#coach-nav", Button).focus()
-        else:
-            self.query_one("#roster", ListView).focus()
-        self._render_players()
-        return True
 
-    def on_unmount(self) -> None:
-        if self._terminal_session is not None:
-            try:
-                self._terminal_session.close()
-            except Exception as exc:
-                print(f"Courtside could not release its terminal client: {exc}", file=sys.stderr)
-            else:
-                self._terminal_session = None
-
-def view_player(backend: Herdr, player: Player) -> int:
-    """Attach once; detach, failure, or agent exit also ends the viewer process."""
+def view_player(backend: Rex, player: Player) -> int:
+    """Select the existing native Rex tab without attaching another terminal."""
     try:
-        command, environment = backend.attachment(player)
-        result = subprocess.run(command, env=environment, check=False)
-        if result.returncode:
-            print("\nAttachment unavailable. If this terminal is already attached elsewhere, "
-                  "detach that view first (Ctrl+B, then Q; inside Herdr: Ctrl+B twice, then Q).",
-                  file=sys.stderr)
-        return result.returncode
+        print(backend.open(player))
+        return 0
     except (BackendError, OSError) as exc:
         print(f"{player.name}: {exc}", file=sys.stderr)
         return 1
@@ -1298,16 +953,16 @@ def view_player(backend: Herdr, player: Player) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Courtside: coach your local Codex roster through Herdr."
+        description="Courtside: coach your local Codex roster through Rex."
     )
     parser.add_argument("--config", type=Path, default=Path.cwd() / "dreamteam.toml",
                         help="Path to the roster and saved play")
-    parser.add_argument("--view", metavar="PLAYER", help="Open one player in this terminal; keep Courtside in another pane")
+    parser.add_argument("--view", metavar="PLAYER", help="Select an existing player tab in Rex")
     args = parser.parse_args()
     config = args.config.expanduser().resolve()
     try:
         players = load_roster(config)
-        backend = Herdr(config.parent)
+        backend = Rex(config.parent)
         app = CourtsideApp(players, backend, play_store=PlayStore(config.parent), config=config)
     except (OSError, ValueError, BackendError) as exc:
         print(f"dreamteam: {exc}", file=sys.stderr)

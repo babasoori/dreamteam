@@ -14,7 +14,7 @@ from textual.widgets import Button, Input, Static, TextArea
 from dreamteam.app import CourtsideApp, NewPlay, PlayBrief, QuitTeam
 from dreamteam.plays import PlayError, PlayStore, brief_text
 from dreamteam.roster import Player
-from dreamteam.runtime import Herdr, Observation, Preview
+from dreamteam.runtime import Rex, Observation, Preview
 
 
 class PlayAppTests(unittest.IsolatedAsyncioTestCase):
@@ -40,10 +40,10 @@ class PlayAppTests(unittest.IsolatedAsyncioTestCase):
         )
         self.original = self.backend("idle", "old-project-pane")
         self.target = self.backend("stopped")
-        self.factory = self.enterContext(patch("dreamteam.app.Herdr", return_value=self.target))
+        self.factory = self.enterContext(patch("dreamteam.app.Rex", return_value=self.target))
 
     def backend(self, activity, pane_id=None):
-        backend = Mock(spec=Herdr)
+        backend = Mock(spec=Rex)
         backend.refresh.side_effect = lambda players: {
             player.id: Observation(activity, "Fake observation.", pane_id, time.time())
             for player in players
@@ -53,9 +53,7 @@ class PlayAppTests(unittest.IsolatedAsyncioTestCase):
         return backend
 
     def make_app(self):
-        views = Mock()
-        views.close_all.return_value = "Managed viewers closed."
-        return CourtsideApp(self.players, self.original, play_store=self.store, views=views)
+        return CourtsideApp(self.players, self.original, play_store=self.store)
 
     def saved_play(self):
         return self.store.create(
@@ -78,7 +76,7 @@ class PlayAppTests(unittest.IsolatedAsyncioTestCase):
     def assert_no_session_actions(self):
         for backend in (self.original, self.target):
             backend.start.assert_not_called()
-            backend.attachment.assert_not_called()
+            backend.open.assert_not_called()
             backend.stop.assert_not_called()
             backend.shutdown.assert_not_called()
 
@@ -186,7 +184,6 @@ class PlayAppTests(unittest.IsolatedAsyncioTestCase):
         self.saved_play()
         app = self.make_app()
         order = Mock()
-        order.attach_mock(app.views.close_all, "views")
         order.attach_mock(self.target.shutdown, "project")
         order.attach_mock(self.original.shutdown, "controller")
         self.target.shutdown.return_value = "Fastbreak stopped."
@@ -197,10 +194,10 @@ class PlayAppTests(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("q", "enter")
                 await self.settled(app, pilot)
                 self.assertEqual(order.mock_calls, [
-                    call.views(), call.project(app.runtime_players), call.controller(app.controller_runtime_players),
+                    call.project(app.runtime_players), call.controller(app.controller_runtime_players),
                 ])
                 exit_app.assert_called_once_with(
-                    "Managed viewers closed.\nFastbreak stopped.\nOld controller sessions stopped."
+                    "Fastbreak stopped.\nOld controller sessions stopped."
                 )
             self.assertTrue(all(player.cwd == self.project for player in self.target.shutdown.call_args.args[0]))
             self.assertTrue(all(player.cwd == self.control for player in self.original.shutdown.call_args.args[0]))

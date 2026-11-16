@@ -16,7 +16,7 @@ from threading import Event, Lock, Thread
 from typing import BinaryIO, Callable
 
 from .coordination import COACH_INSTRUCTIONS, Team, coach_player
-from .runtime import BackendError, Herdr
+from .runtime import BackendError, Rex
 
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -251,7 +251,7 @@ def serve(reader: BinaryIO, writer: BinaryIO, config: Path, project: Path, actor
         return closed.is_set() or (active is not None and active.is_set())
     # Capture once before initialization, while the launching Coach may still
     # hold the runtime lock. Never adopt a replacement Coach on a later call.
-    token = Herdr(project).coordinator_token(coach_player(config, project)) if actor == "coach" else None
+    token = Rex(project).coordinator_token(coach_player(config, project)) if actor == "coach" else None
     bridge = CoachTools(config, project, actor, cancelled=cancelled, coordinator_token=token)
 
     def read_requests():

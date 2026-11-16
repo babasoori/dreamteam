@@ -193,7 +193,7 @@ class StdioTests(unittest.TestCase):
     def setUp(self):
         self.config = Path("/tmp/dreamteam-test/team.toml").resolve()
         self.project = self.config.parent
-        self.runtime = self.enterContext(patch("dreamteam.coach_tools.Herdr"))
+        self.runtime = self.enterContext(patch("dreamteam.coach_tools.Rex"))
         self.runtime.return_value.coordinator_token.return_value = "startup-token"
         self.team = Mock()
         self.team.status.return_value = {"players": []}

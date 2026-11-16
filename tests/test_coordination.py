@@ -14,7 +14,7 @@ from unittest.mock import Mock, call, patch
 
 from dreamteam.coordination import COACH_INSTRUCTIONS, Team, coach_player, coordinated_player, command_prefix, main
 from dreamteam.plays import PlayStore
-from dreamteam.runtime import BackendError, Herdr, Observation, Preview, PromptRejected, PromptUncertain
+from dreamteam.runtime import BackendError, Rex, Observation, Preview, PromptRejected, PromptUncertain
 
 
 ROSTER = """version = 1
@@ -40,7 +40,7 @@ class CoordinationTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve()
         self.config = self.root / 'team "roster".toml'
         self.config.write_text(ROSTER)
-        self.backend = Mock(spec=Herdr)
+        self.backend = Mock(spec=Rex)
         self.backend.refresh.side_effect = lambda players: {
             player.id: Observation("idle", "Verified.", f"pane-{player.id}", time.time())
             for player in players
@@ -53,7 +53,7 @@ class CoordinationTests(unittest.TestCase):
             "terminal_id": "term-penny", "acknowledged_at": 123.0,
         }
         self.backend.read_output.return_value = Preview("Penny's visible output.", 123.0)
-        self.factory = self.enterContext(patch("dreamteam.coordination.Herdr", return_value=self.backend))
+        self.factory = self.enterContext(patch("dreamteam.coordination.Rex", return_value=self.backend))
 
     def team(self, project=None):
         return Team(self.config, project or self.root)

@@ -22,7 +22,7 @@ import uuid
 
 from .plays import PlayStore
 from .roster import Player, load_roster
-from .runtime import BackendError, Herdr
+from .runtime import BackendError, Rex
 
 
 def command_prefix(config: Path, project: Path) -> list[str]:
@@ -31,8 +31,7 @@ def command_prefix(config: Path, project: Path) -> list[str]:
 
 
 def _tool_args(config: Path, project: Path, actor: str) -> tuple[str, ...]:
-    # A compact inline table stays within a fresh macOS PTY's canonical line
-    # buffer. All paths are absolute; the MCP child needs no cwd override.
+    # Session-local MCP configuration uses absolute paths; no global config changes.
     settings = {
         "command": sys.executable,
         "args": ["-m", "dreamteam.coach_tools", "--config", str(config.resolve()),
@@ -61,7 +60,7 @@ runtime/assignment JSON or global configuration.
 Use dispatch_task with a bounded task, expected result and unique request_id. Reuse the SAME ID
 to inspect a repeated/uncertain request; never blindly resend under a new ID. Avoid overlapping
 file edits or assigning a busy/unresolved player. Tell the user who received work and that
-they can select that sidebar entry to follow it. Submitted means delivery, not completion.
+they can open that player’s native Rex tab to follow it. Submitted means delivery, not completion.
 Use wait_for_report for a bounded wait, then status/output; avoid endless polling. Idle and
 timeouts never prove success. Reported done needs review and human acceptance.
 
@@ -108,7 +107,7 @@ class Team:
         roster = load_roster(self.config)
         routed = tuple(replace(p, cwd=self.project) for p in roster) if self.play else roster
         self.players = tuple(coordinated_player(p, self.config, self.project) for p in routed)
-        self.backend = Herdr(self.project)
+        self.backend = Rex(self.project)
         identity = hashlib.sha256(str(self.config).encode()).hexdigest()[:16]
         self.directory = self.project / ".dreamteam" / "coordination"
         self.path = self.directory / f"{identity}.json"
