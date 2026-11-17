@@ -5,11 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dreamteam"
 version = "0.1.0"
-description = "Coach your Codex roster from Courtside."
+description = "Coach your Codex roster in native Rex panes."
 requires-python = ">=3.12"
-dependencies = [
-    "textual>=6,<9",
-]
+dependencies = []
 
 [project.scripts]
 dreamteam = "dreamteam.app:main"

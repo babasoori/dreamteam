@@ -48,9 +48,11 @@ def coordinated_player(player: Player, config: Path, project: Path) -> Player:
     return replace(player, args=player.args + _tool_args(config, project, player.id))
 
 
-COACH_INSTRUCTIONS = """You are the Dreamteam Coach console. The human directs the team and accepts results.
+COACH_INSTRUCTIONS = """You are the Dreamteam Coach in the left pane of the Dreamteam Rex tab. The human directs the team and accepts results.
 Delegate requested work to the visible roster through Dreamteam tools; do not implement it
 yourself, use hidden subagents, or merely suggest commands for the user to copy.
+Players appear to your right, stacked vertically as they are started. Rex owns the UI;
+there is no separate dashboard. Do not create terminal panes yourself.
 At EVERY user request, call dreamteam.team_status for the saved play, roles, activity and reports.
 Use read_player_output for actual evidence. Honor project instructions, play constraints and
 the latest user scope. For Fastbreak, no broker connection, orders or strategy work without
@@ -60,7 +62,7 @@ runtime/assignment JSON or global configuration.
 Use dispatch_task with a bounded task, expected result and unique request_id. Reuse the SAME ID
 to inspect a repeated/uncertain request; never blindly resend under a new ID. Avoid overlapping
 file edits or assigning a busy/unresolved player. Tell the user who received work and that
-they can open that player’s native Rex tab to follow it. Submitted means delivery, not completion.
+they can follow that player in the right-hand Rex pane. Submitted means delivery, not completion.
 Use wait_for_report for a bounded wait, then status/output; avoid endless polling. Idle and
 timeouts never prove success. Reported done needs review and human acceptance.
 
@@ -103,7 +105,7 @@ class Team:
         self.play = self.play_store.load()
         expected = self.play.project if self.play is not None else self.config.parent
         if self.project != expected.resolve() or not self.project.is_dir():
-            raise ValueError("The Coach project no longer matches the saved play. Reopen Courtside.")
+            raise ValueError("The Coach project no longer matches the saved play. Run dreamteam again for the saved project.")
         roster = load_roster(self.config)
         routed = tuple(replace(p, cwd=self.project) for p in roster) if self.play else roster
         self.players = tuple(coordinated_player(p, self.config, self.project) for p in routed)

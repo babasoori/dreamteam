@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Dreamteam: coordinate Codex agents through a Courtside status board and native Rex tabs.">
+  <meta name="description" content="Dreamteam: Coach on the left and players on the right in one native Rex tab.">
   <title>Dreamteam — Basketball playbook</title>
   <style>
     :root {
@@ -140,37 +140,32 @@
 </head>
 <body>
 <header class="wrap">
-  <p class="eyebrow">Dreamteam · Rex migration · 16 November 2026</p>
+  <p class="eyebrow">Dreamteam · Native Rex layout · 16 November 2026</p>
   <h1>Dream<span>team</span></h1>
-  <p class="lead">Coach a roster of coding agents. Rex owns their terminals; Dreamteam owns the play and the handoffs.</p>
+  <p class="lead">One tab. Coach on the left. Players on the right. Rex owns the interface.</p>
   <p><a href="README.md">Run instructions and verification</a></p>
 </header>
 <main class="wrap">
-  <section><h2>One clear boundary</h2>
-    <div class="grid">
-      <article class="card"><h3>Dreamteam</h3><p>Roster, play scope, assignment ledger, explicit progress reports, and the Courtside status board. Coach and players use session-local MCP tools.</p></article>
-      <article class="card"><h3>Rex</h3><p>Native tabs, terminal rendering, input, process hosting, and session persistence. Dreamteam calls the installed CLI with explicit server, session, and block identities.</p></article>
-      <article class="card"><h3>Codex</h3><p>The actual conversations, tools, sandbox, and approval dialogs. The human opens each native Rex tab to interact directly.</p></article>
-    </div>
+  <section><h2>The workspace</h2>
+    <pre>Dreamteam · project
+┌────────────────────────┬────────────────────────┐
+│                        │ Penny                  │
+│ Coach                  ├────────────────────────┤
+│                        │ Shaq                   │
+└────────────────────────┴────────────────────────┘</pre>
+    <p><code>dreamteam</code> starts or reuses Coach in a named Rex tab and returns to the shell. Coach dispatches requested assignments through Dreamteam tools. The first player opens to the right; later players open below the lowest existing player. Dispatch leaves focus unchanged.</p>
+    <p>Rex supplies the sidebar, tab list, activity indicators, pane focus, resizing, zoom, and live terminal input. No custom dashboard, roster widget, preview, or embedded terminal remains.</p>
   </section>
-  <section><h2>The Courtside flow</h2><ol>
-    <li>Open Courtside inside Rex. It selects Coach and observes saved state without launching agents.</li>
-    <li>Press Enter to start Coach and select its native Rex tab. Define the work there, or use N in Courtside to save a play.</li>
-    <li>Coach dispatches a bounded assignment through Dreamteam tools. The player gets its own background Rex tab.</li>
-    <li>Return to Courtside using Rex’s tabs. Select a player with 1–6; Enter or O selects its existing native tab.</li>
-    <li>Review explicit reports and output. An idle process or submitted prompt does not establish completion or acceptance.</li>
-    <li>X confirms stopping one player. Q offers Stop team and quit, Keep sessions running, or Cancel.</li>
-  </ol></section>
-  <section><h2>The roster</h2><p>Penny plans, Air Jordan implements, King James integrates, Sir Charles checks, Shaq reviews, and The Answer brings a fresh perspective. Coach coordinates; the human directs and accepts the work. All currently use Codex.</p></section>
-  <section><h2>State and ownership</h2><ul>
-    <li><code>dreamteam.toml</code> defines the roster.</li>
-    <li><code>.dreamteam/possessions/001/state.json</code> beside the roster stores the saved play and project target.</li>
-    <li><code>.dreamteam/coordination/</code> in the target project stores assignments and reports.</li>
-    <li><code>.dreamteam/rex-runtime.json</code> in the target project records Rex server instance, session, block, process and launch identity.</li>
-  </ul><p>The first Start binds to the current local Rex session. Reopening Courtside reuses those bindings. A different target project has separate bindings. Legacy Herdr runtime files and running sessions are left untouched.</p></section>
-  <section><h2>Delivery and cleanup</h2><p>Starting persists an intent before creating a tab. A lost creation response is reconciled using its unique label; ambiguous launches never produce an automatic duplicate. Input requires a verified idle Codex process and bracketed-paste support. Rex’s acknowledgment means bytes were queued, not that the agent consumed or completed the assignment. Uncertain delivery is not replayed.</p><p>Cleanup stops Coach first, closes only verified managed blocks, and leaves the shared Rex server, session, and unrelated tabs alone. A changed server instance or process blocks automatic reuse and cleanup until inspected.</p></section>
-  <section><h2>Deliberately small</h2><p>No embedded terminal emulator, viewer subprocesses, dedicated terminal server, model SDK, or generic backend framework. Courtside remains a Textual status board with forms and read-only previews.</p><p>Confirmed passes, explicit acceptance controls, multiple saved plays, automatic restart recovery, and additional agent runtimes remain future work.</p></section>
-  <section><h2>Verified boundary</h2><p>Offline tests cover the play workflow, MCP protocol, assignment ledger, native-tab UI, and Rex lifecycle contracts. A real Rex terminal fixture verified startup, reuse, multiline UTF-8 delivery, output capture, and scoped cleanup. A full real Codex Coach/player roundtrip and native approval interaction on Rex have not yet been verified.</p><p>References: <a href="https://www.superlogical.com/rex/docs/automate/cli">Rex CLI</a>, <a href="https://www.superlogical.com/rex/docs/build/program-status">program status protocol</a>, and <a href="https://textual.textualize.io/guide/workers/">Textual workers</a>.</p></section>
+  <section><h2>What Dreamteam owns</h2><ul>
+    <li>Roster roles, project scope, and one saved play.</li>
+    <li>Assignments, request-ID deduplication, explicit progress reports, and evidence reads.</li>
+    <li>A small CLI that launches and selects native Rex panes and stops only verified managed processes.</li>
+  </ul><p>Codex owns the conversations, tools, sandbox, and approval dialogs. The human directs the team and accepts the work.</p></section>
+  <section><h2>Working with the team</h2><p>Talk directly to Coach. Use Rex to select a player’s pane. For shell access, <code>dreamteam start penny</code> adds or reuses Penny; <code>dreamteam open coach</code> returns focus to Coach. <code>dreamteam status</code> prints the workflow state. <code>dreamteam stop team</code> stops Coach first, then the managed players.</p><p>Ask Coach to define a play, or use <code>dreamteam play</code> before launch. <code>dreamteam brief</code> prints the optional planning brief. Saving a play or printing a brief never dispatches work.</p></section>
+  <section><h2>Layout rules</h2><p>All creation uses exact server, session, tab, and anchor identities. Repeated starts reuse a live pane. New players split the current bottom of the right column; closing a player lets Rex collapse its split naturally. Users can resize or zoom using Rex. Rearranged or unmanaged panes are not automatically overwritten.</p><p>Old separate-tab runtimes require explicit shutdown before starting the new layout. Existing conversations are not silently moved or restarted.</p></section>
+  <section><h2>Lifecycle and evidence</h2><p>Launch intent is saved before creating a pane. Lost responses are reconciled, never blindly retried. Input requires a verified idle Codex process and bracketed-paste support. Rex’s acknowledgment means bytes were queued, not that the assignment was consumed or completed. Reports still require review and human acceptance.</p><p>Closing the launcher leaves agents running. Explicit cleanup preserves the Rex server, session, current terminal, and unrelated tabs. Changed server or process identities block automatic actions.</p></section>
+  <section><h2>Kept small</h2><p>Standard-library Python and the installed Rex CLI. No terminal rendering, Textual, model SDK, background supervisor, or backend framework. The roster, saved play, and assignment formats are unchanged. Confirmed passes, acceptance controls, multiple saved plays, and automatic restart recovery remain future work.</p></section>
+  <section><h2>Verified boundary</h2><p>105 offline tests cover the launcher, split placement, lifecycle, plays, and coordination tools. A real Rex fixture check verified the exact three-pane layout, focus preservation, reuse, input, capture, and cleanup. A real Codex Coach/player roundtrip remains unverified.</p><p>References: <a href="https://www.superlogical.com/rex/docs/automate/cli">Rex CLI</a>, <a href="https://www.superlogical.com/rex/docs/automate/shell-scripting#building-a-layout">native layouts</a>, and <a href="https://www.superlogical.com/rex/docs/build/program-status">program status protocol</a>.</p></section>
 </main>
 </body>
 </html>

@@ -71,7 +71,7 @@ class Rex:
     def _call(self, state, *args, raw=False, input=None, timeout=8):
         binary = shutil.which("rex")
         if binary is None:
-            raise BackendError("Rex is missing from PATH. Launch Courtside inside Rex.")
+            raise BackendError("Rex is missing from PATH. Run dreamteam inside Rex.")
         command = [binary, "--autostart=false", "--timeout", "5s"]
         if state is not None:
             command += ["-S", state["endpoint"]]
@@ -124,7 +124,7 @@ class Rex:
                     info = self._call(None, "whoami", "--json")
                     endpoint = info.get("endpoint", "")
                     if not endpoint.startswith("unix://") or not info.get("session_id"):
-                        raise BackendError("Start Courtside inside a local Rex session.")
+                        raise BackendError("Run dreamteam inside a local Rex session.")
                     state = self._validate({"version": 1, "project": str(self.project),
                         **{k: info.get(k) for k in ("endpoint", "host_id", "instance_id", "session_id")},
                         "players": {}})
@@ -185,6 +185,13 @@ class Rex:
                 or block.get("creator_name") != "com.superlogical.terminal"
                 or block.get("host_id") != state["host_id"]):
             raise BackendError(f"{player.name}'s block identity changed; refusing to act.")
+        if binding.get("window_id") is not None and block.get("window_id") != binding["window_id"]:
+            raise BackendError(f"{player.name}'s pane moved to another tab; refusing to act.")
+        if binding.get("window_id") is None:
+            if not isinstance(block.get("window_id"), str):
+                raise BackendError("The managed pane has no verified Rex tab.")
+            binding["window_id"] = block["window_id"]
+            self._save(state)
         process = self._method(state, block["block_id"], "process")
         child = process.get("child")
         if child is None and process.get("last_exit") is not None:
@@ -204,8 +211,8 @@ class Rex:
     def _observation(self, state, block, process):
         now = time.time()
         if block is None or process is None:
-            detail = ("Codex exited. Press X to close its saved tab, then S to restart."
-                      if block else "No running Codex session. Press S to start.")
+            detail = ("Codex exited. Use dreamteam stop PLAYER before restarting."
+                      if block else "No running Codex session. Use dreamteam start PLAYER to start.")
             return Observation("stopped", detail, block["block_id"] if block else None, now)
         child = process["child"]
         records = self._method(state, block["block_id"], "program_status").get("records", [])
@@ -216,7 +223,7 @@ class Rex:
         activity = {"done": "idle", "error": "blocked"}.get(activity, activity)
         if activity not in {"idle", "working", "blocked"}:
             activity = "unknown"
-        detail = ("Rex has no verified Codex status yet. Open its tab to finish startup."
+        detail = ("Rex has no verified Codex status yet. Open its pane to finish startup."
                   if activity == "unknown" else "Codex status reported through Rex; activity is not task completion.")
         return Observation(activity, detail, block["block_id"], now)
 
@@ -257,40 +264,120 @@ class Rex:
         if block is None or process is None:
             raise BackendError("Coach is no longer running; dispatch is blocked.")
 
+    def _prepare_layout(self, state):
+        if state.get("layout") == "coach-right-column":
+            return
+        if state["players"]:
+            raise BackendError("These bindings use the old separate-tab layout. Stop that team with "
+                               "dreamteam stop team before launching the new layout.")
+        state["layout"] = "coach-right-column"
+        self._save(state)
+
+    @staticmethod
+    def _vertical_blocks(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("block_id"), str):
+                return [node["block_id"]]
+            split = node.get("split", {})
+            if split.get("direction") == "vertical":
+                return Rex._vertical_blocks(split.get("before")) + Rex._vertical_blocks(split.get("after"))
+        raise BackendError("The player column was rearranged. Restore its vertical splits before adding a player.")
+
+    def _split_target(self, state, blocks):
+        saved = state["players"].get("coach")
+        if not isinstance(saved, dict):
+            raise BackendError("Start Coach first with dreamteam.")
+        coach = Player("coach", "Coach", "coach", Path(saved["cwd"]))
+        coach_block, process = self._bound(state, coach, blocks)
+        if coach_block is None or process is None:
+            raise BackendError("Coach must be running before adding a player.")
+        window_id = coach_block["window_id"]
+        view = self._call(state, "session", "inspect", state["session_id"], "--json")
+        windows = [w for w in view.get("windows", []) if w.get("window_id") == window_id]
+        if len(windows) != 1:
+            raise BackendError("Cannot verify the Coach tab layout.")
+        layers = windows[0].get("layers", [])
+        if len(layers) != 1 or layers[0].get("kind") != "tiled":
+            raise BackendError("The Coach tab must have one tiled layout before adding a player.")
+        layout = layers[0].get("layout", {})
+        coach_id = coach_block["block_id"]
+        if layout.get("block_id") == coach_id:
+            return coach_id, "right", window_id
+        split = layout.get("split", {})
+        if (split.get("direction") != "horizontal"
+                or split.get("before", {}).get("block_id") != coach_id):
+            raise BackendError("Restore Coach on the left and the player column on the right before adding a player.")
+        right_ids = self._vertical_blocks(split.get("after"))
+        owners = {b.get("block_id"): key for key, b in state["players"].items() if isinstance(b, dict)}
+        for block_id in right_ids:
+            key = owners.get(block_id)
+            if key is None or key == "coach":
+                raise BackendError("The right column contains an unmanaged pane; no split was created.")
+            binding = state["players"][key]
+            block, _ = self._bound(state, Player(key, key, "", Path(binding["cwd"])), blocks)
+            if block is None:
+                raise BackendError("A player pane disappeared while reading the layout.")
+        return right_ids[-1], "below", window_id
+
+    def _name_coach_tab(self, state, block):
+        binding = state["players"]["coach"]
+        if not binding.get("tab_named"):
+            self._call(state, "window", "rename", "-s", state["session_id"], block["window_id"],
+                       f"Dreamteam · {self.project.name}", raw=True)
+            binding["tab_named"] = True
+            self._save(state)
+
     def start(self, player: Player, *, coordinator: tuple[Player, str] | None = None) -> Observation:
         with self._locked(create=coordinator is None) as state:
             if state is None:
                 raise BackendError("Coach is no longer running.")
+            self._prepare_layout(state)
             blocks = self._snapshot(state)
             if coordinator is not None:
                 self._require_coordinator(state, coordinator, blocks)
             block, process = self._bound(state, player, blocks)
             if block is not None and process is not None:
+                if player.id == "coach":
+                    self._name_coach_tab(state, block)
                 return self._observation(state, block, process)
             if block is not None:
-                raise BackendError("The previous Codex exited. Stop its saved tab before starting again.")
+                raise BackendError("The previous Codex exited. Use dreamteam stop PLAYER before starting again.")
+            anchor = direction = window_id = None
+            if player.id == "coach":
+                # Do not leave a live player column behind when replacing Coach.
+                if any(key != "coach" for key in state["players"]):
+                    raise BackendError("Stop the remaining team before replacing Coach: dreamteam stop team.")
+            else:
+                anchor, direction, window_id = self._split_target(state, blocks)
             binary = shutil.which("codex")
             if binary is None:
                 raise BackendError("Codex is missing from PATH.")
             nonce = uuid.uuid4().hex
             binding = {"nonce": nonce, "label": f"Dreamteam / {player.name} / {nonce[:8]}",
                        "cwd": str(player.cwd), "executable": str(Path(binary).resolve()),
-                       "phase": "launching"}
+                       "phase": "launching", "window_id": window_id}
             state["players"][player.id] = binding
             self._save(state)
             # argv is passed directly, never interpolated into shell source.
-            created = self._call(state, "run", "-s", state["session_id"], "-c", str(player.cwd),
+            placement = (["split", "-b", anchor, "--split", direction, "--ratio", "50"]
+                         if anchor else ["run"])
+            created = self._call(state, *placement, "-s", state["session_id"], "-c", str(player.cwd),
                                  "--label", binding["label"], "--focus=false", "--keep-open",
                                  "--shell=none", "--json", "--", binding["executable"], *player.args)
             ids = created.get("block_ids")
-            if (not isinstance(ids, list) or len(ids) != 1
-                    or not isinstance(ids[0], str) or not ids[0].startswith("block:")):
+            if (not isinstance(ids, list) or not ids
+                    or not isinstance(ids[0], str) or not ids[0].startswith("block:")
+                    or (anchor and (ids[0] == anchor or ids[1:] not in ([], [anchor])))
+                    or (not anchor and len(ids) != 1)):
                 raise BackendError("Rex launch is unconfirmed; refresh before acting.")
             binding["block_id"] = ids[0]
             self._save(state)
             deadline = time.monotonic() + 8
             while True:
-                observation = self._observation(state, *self._bound(state, player, self._snapshot(state)))
+                block, process = self._bound(state, player, self._snapshot(state))
+                if player.id == "coach" and block is not None:
+                    self._name_coach_tab(state, block)
+                observation = self._observation(state, block, process)
                 if observation.activity != "unknown" or time.monotonic() >= deadline:
                     return observation
                 time.sleep(0.2)
@@ -311,9 +398,6 @@ class Rex:
                 raise BackendError("The player disappeared while reading output.")
             return Preview("\n".join(_plain_terminal_text(output).splitlines()[-lines:])[-32768:], time.time())
 
-    def preview(self, player: Player) -> Preview:
-        return self.read_output(player)
-
     def send_prompt(self, player: Player, text: str, *, coordinator: tuple[Player, str] | None = None) -> dict:
         if (not isinstance(text, str) or not text.strip() or len(text) > 32768
                 or any(unicodedata.category(c) in {"Cc", "Cs"} and c not in "\n\t" for c in text)):
@@ -328,7 +412,7 @@ class Rex:
                     self._require_coordinator(state, coordinator, blocks)
                 block, process = self._bound(state, player, blocks)
                 if self._observation(state, block, process).activity != "idle":
-                    raise PromptRejected("The player is not confirmed idle; inspect its Rex tab.")
+                    raise PromptRejected("The player is not confirmed idle; inspect its Rex pane.")
                 if (process.get("foreground") or {}).get("pid") != process["child"]["pid"]:
                     raise PromptRejected("Codex does not own the foreground; no input was sent.")
                 modes = self._method(state, block["block_id"], "modes").get("modes", [])
@@ -359,10 +443,9 @@ class Rex:
                 raise BackendError("Start the player first.")
             block, _ = self._bound(state, player, self._snapshot(state))
             if block is None:
-                raise BackendError("No saved Rex tab. Start the player first.")
+                raise BackendError("No saved Rex pane. Start the player first.")
             self._call(state, "focus", "-s", state["session_id"], block["block_id"], raw=True)
-            return (f"Selected {player.name}'s native Rex tab in {state['session_id']}. "
-                    "Use Rex's tabs to return to Courtside.")
+            return f"Selected {player.name} in the Dreamteam tab ({state['session_id']})."
 
     def _stop(self, state, player):
         block, _ = self._bound(state, player, self._snapshot(state))
@@ -387,7 +470,7 @@ class Rex:
     def shutdown(self, players: tuple[Player, ...]) -> str:
         with self._locked() as state:
             if state is None:
-                return "No Dreamteam Rex tabs to close."
+                return "No Dreamteam panes to close."
             roster = {p.id: p for p in players}
             blocks = self._snapshot(state)
             for key in state["players"]:
@@ -398,4 +481,4 @@ class Rex:
             for key in sorted(list(state["players"]), key=lambda key: key != "coach"):
                 self._stop(state, roster[key])
             self.path.unlink()
-            return "Closed managed Rex tabs. Your Rex server, session, and other tabs remain running."
+            return "Closed managed Dreamteam panes. Your Rex server, session, and other tabs remain running."
